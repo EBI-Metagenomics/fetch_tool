@@ -4,45 +4,31 @@ Tool which allows you to fetch RAW read files from the European Nucleotide Archi
 Install fetch tool
 ============================
 
-    pip install -U ??
+    pip install -r requirements.txt
 
 
 Usage
 =====
 
-    $ fetch_data.py -h
-    usage: fetch_data.py [-h] [-p PROJECTS] [-ru PROJECT_RUNS [PROJECT_RUNS ...]]
-                     [-c CONFIG_FILE] -d DDIR [-f] [-w] [-r] [-s] [-l PLIST]
-                     [-v] [-z] [-o OUTPUT_FILE] [-a] [-i]
-
-    Tool to fetch project sequence data from ENA
-
+    $ fetch_assemblies.py -h
+    usage: fetch_assemblies.py [-h] -p PROJECT [-c CONFIG_FILE] [-d DDIR]
+                               [-s {ftp,filesystem}] [-v]
+                               [-pr {1.0,2.0,3.0,4.0,4.1}] [-i]
+    
+    Tool to fetch assemblies from ENA
+    
     optional arguments:
       -h, --help            show this help message and exit
-      -p PROJECTS, --project PROJECTS
-                            Project accession(s)
-      -ru PROJECT_RUNS [PROJECT_RUNS ...], --runs PROJECT_RUNS [PROJECT_RUNS ...]
-                            Run accession(s) whitespace separated. That option is
-                            useful if you want to download only certain project
-                            runs
+      -p PROJECT, --project PROJECT
+                            Project accession
       -c CONFIG_FILE, --config CONFIG_FILE
                             Configuration file [json]
       -d DDIR, --dir DDIR   Base directory for downloads
-      -f, --force           Force the download, even if it hits cases of submitted
-                            files only. But it will not download the submitted
-                            files.
-      -w, --use_view        Use DB views rather than FTP
-      -r, --private         Data is private
-      -s, --skip            Skip runs with missing/incorrect data
-      -l PLIST, --project_list PLIST
-                            Project list
+      -s {ftp,filesystem}, --source {ftp,filesystem}
+                            Source of the RAW files.
       -v, --verbose         Verbose
-      -z, --unzip           Unzip .gz files
-      -o OUTPUT_FILE, --output OUTPUT_FILE
-                            Output summary [json]
-      -a, --include_assembly
-                            Data for project including assembly. FALSE means do
-                            not include assemblies (default).
+      -pr {1.0,2.0,3.0,4.0,4.1}, --pipeline-version {1.0,2.0,3.0,4.0,4.1}
+                            Specify pipeline version e.g. 4.1
       -i, --interactive     interactive mode - allows you to skip failed
                             downloads.
 
@@ -50,6 +36,6 @@ Usage
 Examples
 ========
 
-Download metadata:
+Download assembly study:
 
-    $ fetch_data.py -v -p ERP000554 -d {output dir}
+    $ fetch_assemblies.py -p ERP022256 -c fetchdata-config-local.json -v

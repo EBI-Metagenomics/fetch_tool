@@ -1,0 +1,27 @@
+{
+  "eraHost": "",
+  "eraPort": "1541",
+  "eraInstance": "ERAPRO",
+  "eraUser": "",
+  "eraPassword": "",
+  "enaHost": "",
+  "enaPort": "1531",
+  "enaInstance": "ENAPRO",
+  "enaUser": "",
+  "enaPassword": "",
+  "ena_root_path": "/nfs/dcc_metagenomics",
+  "ena_login_hosts": [
+    "",
+    ""
+  ],
+  "ssh_max_attempts": 4,
+  "url_max_attempts": 5,
+  "trustedBrokers": [
+    "MGRAST",""
+  ],
+  "enaAPIUrl": "https://www.ebi.ac.uk/ena/portal/api/search",
+  "enaAPIUsername": "",
+  "enaAPIPassword": "",
+  "enaMasterPassword": "",
+  "swagger_url": "https://www.ebi.ac.uk/ena/submit/report/analysis-process/"
+}
