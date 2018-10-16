@@ -1,4 +1,4 @@
-Tool which allows you to fetch RAW read files from the European Nucleotide Archive (ENA).
+Set of tools which allows you to fetch RAW read and assembly files from the European Nucleotide Archive (ENA).
 
 
 Install fetch tool
