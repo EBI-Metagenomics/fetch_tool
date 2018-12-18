@@ -4,7 +4,20 @@ Set of tools which allows you to fetch RAW read and assembly files from the Euro
 Install fetch tool
 ============================
 
-    pip install -r requirements.txt
+Using Conda
+-----------
+
+    $ conda create -q -n fetch_tool python=3.6.4
+    $ source activate fetch_tool
+
+Install from requirements file
+
+    $ git clone git@github.com:EBI-Metagenomics/fetch_tool.git
+    $ pip install -r requirements.txt
+
+Install from Git repo
+
+    $ pip install git+ssh://github.com/EBI-Metagenomics/fetch_tool.git
 
 
 Usage
