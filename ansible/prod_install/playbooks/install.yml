@@ -1,0 +1,10 @@
+---
+- name: Fetch tool production installer
+  hosts: ebi_cli
+  remote_user: '{{ user }}'
+  become: true
+  become_user: emgpr
+  gather_facts: no
+
+  roles:
+    - { role: fetch_tool, tags: ['production'] }

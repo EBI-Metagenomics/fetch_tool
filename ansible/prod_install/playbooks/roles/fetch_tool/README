@@ -1,0 +1,13 @@
+How to run this playbook?
+
+$ cd webupdater/ansible/prod_install
+
+//The version variable specifies the checkout clone output directory
+//dir_name: Name of the directory in which the pipeline will be install (find the full path in your Ansible variable file), e.g. develop
+//username: Change user name! Must be your organisation linux username, e.g. maxim
+//version: The name of the branch or tag version you want to check out, e.g. develop OR v4.0.5
+//tagged_version: Type true if you want to checkout/pull a tagged version or false if you want to checkout/pull a feature branch
+//env: Type dev if you you want to install the pipeline under the test-clones directory or prod if you want to install a new production clone
+$ ansible-playbook -vvv -i prod-inventory playbooks/install.yml --extra-vars "dir_name=<directory-name> user=<username> version=<branch or tagged version> tagged_version=<true|false> env=<dev|prod>" --ask-pass --tags "new_version"
+
+ansible-playbook -vvv -i prod-inventory playbooks/install.yml --extra-vars "dir_name=v2.0 user=maxim version=web-updater-v2.0 tagged_version=true env=dev" --ask-pass --tags "new_version"

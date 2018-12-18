@@ -1,0 +1,55 @@
+---
+
+# START setup directories
+
+# Start: Pull the production code from GitHub
+
+- shell: echo {{ webupdater_install_dest }}
+  tags: ['new_version']
+
+- name: Checking if checkout clone does already exist
+  stat: path="{{ webupdater_install_dest }}"
+  register: webupdater_install_step
+  tags: ['new_version']
+
+- name: Creating Git destination directory
+  file: path="{{ webupdater_install_dest }}"
+        state=directory
+        mode=0755
+  when: not webupdater_install_step.stat.exists
+  tags: ['new_version']
+
+
+- name: Initializing a new Git repo, Pulling production repo, Checking out feature branch or tagged version
+  command: "{{item.command}}"
+  args:
+      chdir: "{{ webupdater_install_dest }}"
+  with_items:
+    - { command: "git init" }
+    - { command: "git fetch --depth 1 https://{{ git_access_token }}@{{ git_host }}/{{ git_username }}/{{ git_repo_name }}.git +{{ git_refspec_local }}/{{ git_feature_branch }}:{{git_refspec_remote }}/{{ git_feature_branch }}" }
+    - { command: "git checkout {{ git_checkout_branch }}/{{ git_feature_branch }}" }
+  when: not webupdater_install_step.stat.exists
+  tags: ['new_version']
+
+# End pipeline installation
+
+- name: Remove unnecessary sub folders
+  file: path="{{ item.target_directory }}"
+        state=absent
+  with_items:
+    - { target_directory: "{{ webupdater_install_dest }}/analysis-pipeline" }
+    - { target_directory: "{{ webupdater_install_dest }}/cronjobs" }
+    - { target_directory: "{{ webupdater_install_dest }}/peptide-db" }
+    - { target_directory: "{{ webupdater_install_dest }}/monitoring" }
+    - { target_directory: "{{ webupdater_install_dest }}/publication_uploader" }
+    - { target_directory: "{{ webupdater_install_dest }}/trainee-projects" }
+    - { target_directory: "{{ webupdater_install_dest }}/website" }
+  tags: ['new_version']
+
+# Change mode of the checkout clone directory recursively
+- name: Changing the mode of the checkout clone directory recursively
+  file: path={{webupdater_install_dest}} recurse=yes mode=0750
+  when: not webupdater_install_step.stat.exists
+  tags: ['new_version']
+
+# END of the entire depolyment procedure

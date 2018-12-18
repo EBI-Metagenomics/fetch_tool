@@ -1,0 +1,43 @@
+1. Standard Ansible call
+
+1.1 Pipeline version 3.0
+
+    ansible-playbook -i prod-inventory playbooks/install.yml --ask-pass
+
+1.2 Pipeline version 4.0
+
+    ansible-playbook -i prod-inventory playbooks/install-v4.0.yml --ask-pass
+
+2. Using verbose mode
+
+    ansible-playbook -vvv -i prod-inventory playbooks/install.yml --ask-pass
+
+3. Using tags to run a specific part of the configuration without running the whole playbook
+
+    ansible-playbook -i prod-inventory playbooks/install.yml --ask-pass --tags "init,miniconda"
+
+4. You may also apply tags to roles
+
+roles:
+    - { role: pipeline-v3.0, tags: ['production'] }
+
+
+5. How to add the Conda Ansible Module (https://github.com/UDST/ansible-conda)?
+
+5.1 Change the Ansible configuration and set library variable
+
+    nano /etc/ansible/ansible.cfg
+
+    library        = /usr/share/ansible
+
+5.2 Download Conda module and unzip it in the library directory
+
+    # You might have to do all those tasks as super user
+    cd /usr/share/ansible
+    wget -O ansible-conda-master.zip https://github.com/UDST/ansible-conda/archive/master.zip
+
+    unzip ansible-conda-master.zip
+
+5.3 Check if Conda module is in the list of install Ansible modules
+
+    ansible-doc -l
