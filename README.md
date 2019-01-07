@@ -17,14 +17,14 @@ Install from requirements file
 
 Install from Git repo
 
-    $ pip install git+ssh://github.com/EBI-Metagenomics/fetch_tool.git
+    $ pip install git+ssh://git@github.com/EBI-Metagenomics/fetch_tool.git
 
 
 Usage
 =====
 
-    $ fetch_assemblies.py -h
-    usage: fetch_assemblies.py [-h] -p PROJECT [-c CONFIG_FILE] [-d DDIR]
+    $ fetch_tool -h
+    usage: fetch_tool [-h] -p PROJECT [-c CONFIG_FILE] [-d DDIR]
                                [-s {ftp,filesystem}] [-v]
                                [-pr {1.0,2.0,3.0,4.0,4.1}] [-i]
     
@@ -51,4 +51,4 @@ Examples
 
 Download assembly study:
 
-    $ fetch_assemblies.py -p ERP022256 -c fetchdata-config-local.json -v
+    $ fetch-data -p ERP022256 -c fetchdata-config-local.json -v

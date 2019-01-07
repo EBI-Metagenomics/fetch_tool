@@ -28,7 +28,7 @@ setup(name='fetch-tool',
       include_package_data=True,
       entry_points={
           'console_scripts': [
-              'fetch-tool=fetch_assemblies:main'
+              'fetch-tool=fetch_data.fetch_assemblies:main'
           ]
       },
       tests_require=test_requirements,
