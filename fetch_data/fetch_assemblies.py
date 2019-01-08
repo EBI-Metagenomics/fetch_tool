@@ -25,7 +25,7 @@ from subprocess import call
 
 import sh
 
-from rename_fasta_header_util import rename_raw_file, \
+from fetch_data.rename_fasta_header_util import rename_raw_file, \
     change_fasta_headers
 
 __author__ = "Maxim Scheremetjew"
