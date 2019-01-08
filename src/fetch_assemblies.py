@@ -27,6 +27,7 @@ import sh
 
 from src.rename_fasta_header_util import rename_raw_file, \
     change_fasta_headers
+from src.fetch_reads import LATEST_PIPELINE_VERSION
 
 __author__ = "Maxim Scheremetjew"
 __copyright__ = "Copyright (c) 2018 EMBL - European Bioinformatics Institute"
@@ -575,9 +576,9 @@ def main():
                         required=False, action='count')
     parser.add_argument("-pr", "--pipeline-version",
                         help="Specify pipeline version e.g. 4.1",
-                        dest='LATEST_PIPELINE_VERSION',
+                        dest='pipeline_version',
                         choices=['1.0', '2.0', '3.0', '4.0', '4.1'],
-                        required=False, default="4.1")
+                        required=False, default=LATEST_PIPELINE_VERSION)
     parser.add_argument("-i", "--interactive",
                         help="interactive mode - allows you to skip failed downloads.",
                         dest="interactive",

@@ -349,7 +349,7 @@ class ENADataFetcher(object):
         return result
 
     def _retrieve_project_info_db(self, acc, file, run_id_list, mode, api_url,
-                                  user_pass):
+                                  user_pass, eradao):
         from ERADAO import ERADAO
         runs = ERADAO(eradao).retrieve_generated_files(acc)
         run_accession_list = self._get_run_accessions(runs)
@@ -427,8 +427,7 @@ class ENADataFetcher(object):
                      'n/a']) + '\n')
         return True
 
-    def download_project(self, acc, use_view, is_private, dao, enadao,
-                         prod_user, run_id_list, interactive, user_pass,
+    def download_project(self, acc, use_view, is_private, eradao, prod_user, run_id_list, interactive, user_pass,
                          api_url):
         summary_file = acc + ".txt"
         use_dcc_metagenome = False
@@ -440,7 +439,7 @@ class ENADataFetcher(object):
             use_dcc_metagenome = True
             if not self._retrieve_project_info_db(acc, summary_file,
                                                   run_id_list, 'w', api_url,
-                                                  user_pass):
+                                                  user_pass, eradao):
                 logging.warning(no_run_data_msg)
                 exit_tag += 1  # sys.exit(1)
             else:
@@ -652,8 +651,6 @@ def main():
             pass  # Default config files does exist and can be loaded
 
     eradao = None
-    enadao = None
-    config = {}
     if use_view:
         from oracle_db_access_object import OracleDataAccessObject
         from oracle_db_connection import OracleDBConnection
@@ -664,10 +661,6 @@ def main():
                 OracleDBConnection(config["eraUser"], config["eraPassword"],
                                    config["eraHost"], config["eraPort"],
                                    config["eraInstance"]))
-            enadao = OracleDataAccessObject(
-                OracleDBConnection(config["enaUser"], config["enaPassword"],
-                                   config["enaHost"], config["enaPort"],
-                                   config["enaInstance"]))
 
 
     with open(config_file) as fh:
@@ -697,8 +690,7 @@ def main():
         logging.info("Handling project " + pacc)
 
         # Make a copy of the web uploader config file (a template version sleeps in the template sub folder)
-        program.download_project(pacc, use_view, is_private, eradao, enadao,
-                                 prod_user, run_id_list, interactive,
+        program.download_project(pacc, use_view, is_private, eradao, prod_user, run_id_list, interactive,
                                  api_credentials, api_url)
 
     if output_file:
