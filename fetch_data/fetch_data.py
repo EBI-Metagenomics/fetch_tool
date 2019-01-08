@@ -1,5 +1,18 @@
-#!/hps/nobackup/production/metagenomics/pipeline/tools/python-3.5.2/bin/python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+# Copyright 2018 EMBL - European Bioinformatics Institute
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import argparse
 import json
@@ -207,7 +220,7 @@ class ENADataFetcher(object):
         headers_line = '\t'.join(self._get_column_headers_list()) + '\n'
         # Write header line if not present
         if len(project_data) == 0:
-            project_data.append(headers_line)
+            new_project_rows.append(headers_line)
 
         for line in data[1:]:
             processed_files = []
@@ -276,54 +289,6 @@ class ENADataFetcher(object):
             fh.writelines(new_project_rows)
         with open('download', 'a') as dl:
             dl.writelines(new_download_entries)
-        return True
-
-    def _retrieve_assembly_info_db(self, acc, file, header_tag, status):
-        from ERADAO import ERADAO
-        metadata_analyses = ERADAO(eradao).retrieve_assembly_metadata(acc)
-        if len(metadata_analyses) < 1:
-            return False
-        project_acc = metadata_analyses[0]['PROJECT_ID']
-        # to deal wit the fact than some NCBI study do not have project_id
-        if len(project_acc) < 3:
-            project_acc = acc
-        from ENADAO import ENADAO
-        wgs_analyses = ENADAO(enadao).retrieve_assembly_data(project_acc)
-        if len(wgs_analyses) < 1:
-            logging.error(
-                "Failed to retrieve contigs and assembly data for study " + acc + "\n")
-            return False
-        if header_tag == "Y":
-            mode = "w"
-        else:
-            mode = "a"
-        analyses = self._combine_analyses(metadata_analyses, wgs_analyses)
-        with open(acc + '.txt', mode) as fh, open('download', mode) as dl:
-            if header_tag == "Y": fh.write(
-                "\t".join(self._get_column_headers_list()) + "\n")
-            for analysis in analyses:
-                analysis_id = analysis['ANALYSIS_ID']
-                contigs_id = analysis['FILENAME']
-                assembly_id = analysis['GC_ID']
-                fh_path = 'pub/databases/ena/wgs/public/' + contigs_id[
-                                                            :2].lower()
-                path = 'ftp.ebi.ac.uk/' + fh_path + "/" + contigs_id + ".fasta.gz"
-                if len(path) < 26:
-                    logging.error(
-                        "Failed to get contig information to obtain path " + file + "\n")
-                    sys.exit(1)
-                raw_file_name = contigs_id + '.fasta.gz'
-                dl.write('\t'.join(
-                    [path, os.sep.join(['raw', raw_file_name])]) + '\n')
-                fh.write('\t'.join(
-                    [analysis['STUDY_ID'], analysis['SAMPLE_ID'], contigs_id,
-                     'FASTA',
-                     raw_file_name, fh_path, analysis['TAX_ID'], 'n/a',
-                     'ASSEMBLY', 'METAGENOMIC',
-                     pipeline_version, 'COMPLETED', 'biome_placeholder',
-                     assembly_id, analysis_id]) + '\n')
-                if not os.path.isdir('raw'):
-                    os.mkdir('raw')
         return True
 
     def _trusted_broker_check(self, accession, api_url, user_pass,
@@ -458,15 +423,12 @@ class ENADataFetcher(object):
         return True
 
     def download_project(self, acc, use_view, is_private, dao, enadao,
-                         prod_user, include_assembly, run_id_list,
-                         interactive,
-                         user_pass, api_url):
+                         prod_user, run_id_list, interactive, user_pass,
+                         api_url):
         summary_file = acc + ".txt"
         use_dcc_metagenome = False
         exit_tag = 0
         header = "Y"
-        no_assembly_data_msg = "No assembly data for project " + acc
-        found_assembly_data_msg = "Found assembly data for project " + acc
         no_run_data_msg = "No run data for project " + acc
         prod_user_msg = "Using the production user for fetching data from dcc metagenome!"
         if use_view:
@@ -478,30 +440,6 @@ class ENADataFetcher(object):
                 exit_tag += 1  # sys.exit(1)
             else:
                 header = "N"
-            if include_assembly:
-                if not self._retrieve_assembly_info_db(acc, summary_file,
-                                                       header, is_private):
-                    logging.warning(no_assembly_data_msg)
-                    exit_tag += 1  # sys.exit(1)
-                else:
-                    logging.info(found_assembly_data_msg)
-                    logging.info(prod_user_msg)
-        elif include_assembly:
-            if not self._retrieve_assembly_info_db(acc, summary_file, header,
-                                                   is_private):
-                logging.warning(no_assembly_data_msg)
-                exit_tag += 1  # sys.exit(1)
-                if not self._retrieve_project_info_ftp(acc, run_id_list):
-                    logging.warning(no_run_data_msg)
-                    exit_tag += 1
-            else:
-                use_dcc_metagenome = True
-                logging.info(found_assembly_data_msg)
-                logging.info(prod_user_msg)
-                if not self._retrieve_project_info_db(acc, summary_file,
-                                                      run_id_list, 'a'):
-                    logging.warning(no_run_data_msg)
-                    exit_tag += 1  # sys.exit(1)
         else:
             if not self._retrieve_project_info_ftp(acc, run_id_list, user_pass,
                                                    api_url):
@@ -641,11 +579,6 @@ if __name__ == '__main__':
                         required=False, action='store_true')
     parser.add_argument("-o", "--output", help="Output summary [json]",
                         dest='output_file', required=False)
-    parser.add_argument("-a", "--include_assembly",
-                        help="Data for project including assembly. FALSE means do not include assemblies (default).",
-                        dest='include_assembly',
-                        default=False,
-                        action='store_true')
     parser.add_argument("-i", "--interactive",
                         help="interactive mode - allows you to skip failed downloads.",
                         dest="interactive",
@@ -668,8 +601,7 @@ if __name__ == '__main__':
     is_private = args.is_private
     use_view = args.use_view
     interactive = args.interactive
-    include_assembly = args.include_assembly
-    if not use_view and (is_private or include_assembly):
+    if not use_view and is_private:
         use_view = True
     ddir = os.path.abspath(args.ddir)
     force = args.force
@@ -769,8 +701,8 @@ if __name__ == '__main__':
 
         # Make a copy of the web uploader config file (a template version sleeps in the template sub folder)
         program.download_project(pacc, use_view, is_private, eradao, enadao,
-                                 prod_user, include_assembly, run_id_list,
-                                 interactive, api_credentials, api_url)
+                                 prod_user, run_id_list, interactive,
+                                 api_credentials, api_url)
 
     if output_file:
         with open(output_file, 'w') as of:
