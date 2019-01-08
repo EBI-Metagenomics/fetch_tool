@@ -24,7 +24,7 @@ import sys
 import urllib.request
 from subprocess import call
 
-from src import ENAAPIUtils as apiutils
+from src import ENAAPIUtils as ApiUtils
 
 __author__ = "Hubert Denise, Simon Potter, Maxim Scheremetjew"
 __copyright__ = "Copyright (c) 2018 EMBL - European Bioinformatics Institute"
@@ -77,7 +77,7 @@ class ENADataFetcher(object):
                 sys.exit()
         return combine_analyses
 
-    def _trigger_ftp_download(self, url, fn, interactive):
+    def _trigger_ftp_download(self, url, fn, interactive, force):
         attempt = 0
         while True:
             try:
@@ -310,18 +310,18 @@ class ENADataFetcher(object):
                 "Unsupported result type specified: " + result_type)
         logging.info(
             "Checking if accession - " + accession + " - belongs to a trusted broker...")
-        api_query = apiutils.create_study_search_batch_query([accession])
+        api_query = ApiUtils.create_study_search_batch_query([accession])
         accession_field = 'SECONDARY_STUDY_ACCESSION'
         if result_type == 'sample':
-            api_query = apiutils.create_sample_search_batch_query([accession])
+            api_query = ApiUtils.create_sample_search_batch_query([accession])
             accession_field = 'SECONDARY_SAMPLE_ACCESSION'
 
         broker_name_field = 'BROKER_NAME'
         search_fields = [broker_name_field, accession_field]
-        response_str = apiutils.retrieve_metadata(result_type, api_query,
+        response_str = ApiUtils.retrieve_metadata(result_type, api_query,
                                                   search_fields, user_pass,
                                                   api_url)
-        processed_api_result = apiutils.parse_response_str(response_str,
+        processed_api_result = ApiUtils.parse_response_str(response_str,
                                                            accession_field)
         broker_name = self._get_broker_name(processed_api_result, accession,
                                             broker_name_field)
@@ -427,14 +427,12 @@ class ENADataFetcher(object):
                      'n/a']) + '\n')
         return True
 
-    def download_project(self, acc, use_view, is_private, eradao, prod_user, run_id_list, interactive, user_pass,
-                         api_url):
+    def download_project(self, acc, use_view, eradao, prod_user, run_id_list, interactive, user_pass,
+                         api_url, force):
         summary_file = acc + ".txt"
         use_dcc_metagenome = False
         exit_tag = 0
-        header = "Y"
         no_run_data_msg = "No run data for project " + acc
-        prod_user_msg = "Using the production user for fetching data from dcc metagenome!"
         if use_view:
             use_dcc_metagenome = True
             if not self._retrieve_project_info_db(acc, summary_file,
@@ -442,8 +440,6 @@ class ENADataFetcher(object):
                                                   user_pass, eradao):
                 logging.warning(no_run_data_msg)
                 exit_tag += 1  # sys.exit(1)
-            else:
-                header = "N"
         else:
             if not self._retrieve_project_info_ftp(acc, run_id_list, user_pass,
                                                    api_url):
@@ -473,13 +469,13 @@ class ENADataFetcher(object):
                             continue
                     if use_dcc_metagenome and 'wgs' not in line:
                         self.download_fastq_dcc(url, local_file, prod_user,
-                                                interactive)
+                                                interactive, force)
                     else:
-                        self.download_fastq_ftp(url, local_file, interactive)
+                        self.download_fastq_ftp(url, local_file, interactive, force)
         else:
             logging.warning("Nothing to download!")
 
-    def download_fastq_dcc(self, path, fn, prod_user, interactive):
+    def download_fastq_dcc(self, path, fn, prod_user, interactive, force):
         logging.info("Retrieving data from /nfs/dcc_metagenome...")
         if not path[0] == '/' and 'wgs' not in path:
             path = os.sep.join([self.ena_root_path, path])
@@ -523,10 +519,10 @@ class ENADataFetcher(object):
                         sys.exit(1)
             attempt += 1
 
-    def download_fastq_ftp(self, url, fn, interactive):
+    def download_fastq_ftp(self, url, fn, interactive, force):
         if url[:3] == 'ftp':
             url = 'ftp://' + url
-        self._trigger_ftp_download(url, fn, interactive)
+        self._trigger_ftp_download(url, fn, interactive, force)
 
 
 def read_project_list(fn):
@@ -539,6 +535,7 @@ def read_project_list(fn):
         logging.error("File \"" + fn + "\" not found ")
         sys.exit(1)
     return plist
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -570,16 +567,10 @@ def main():
     parser.add_argument("-r", "--private", help="Data is private",
                         dest='is_private', required=False,
                         action='store_true')
-    parser.add_argument("-s", "--skip",
-                        help="Skip runs with missing/incorrect data",
-                        dest='skip', required=False,
-                        action='store_true')
     parser.add_argument("-l", "--project_list", help="Project list",
                         dest='plist', required=False)
     parser.add_argument("-v", "--verbose", help="Verbose", dest='verbosity',
                         required=False, action='count')
-    parser.add_argument("-z", "--unzip", help="Unzip .gz files", dest='unzip',
-                        required=False, action='store_true')
     parser.add_argument("-o", "--output", help="Output summary [json]",
                         dest='output_file', required=False)
     parser.add_argument("-i", "--interactive",
@@ -605,11 +596,8 @@ def main():
     if not use_view and is_private:
         use_view = True
     ddir = os.path.abspath(args.ddir)
-    force = args.force
     verbosity = args.verbosity
     config_file = args.config_file
-    skip = args.skip
-    unzip = args.unzip
     output_file = args.output_file
     if output_file:
         if output_file[0] != '/':
@@ -662,7 +650,6 @@ def main():
                                    config["eraHost"], config["eraPort"],
                                    config["eraInstance"]))
 
-
     with open(config_file) as fh:
         config = json.load(fh)
         ssh_max_attempts = config["ssh_max_attempts"]
@@ -690,16 +677,16 @@ def main():
         logging.info("Handling project " + pacc)
 
         # Make a copy of the web uploader config file (a template version sleeps in the template sub folder)
-        program.download_project(pacc, use_view, is_private, eradao, prod_user, run_id_list, interactive,
-                                 api_credentials, api_url)
+        program.download_project(pacc, use_view, eradao, prod_user, run_id_list, interactive,
+                                 api_credentials, api_url, args.force)
 
     if output_file:
         with open(output_file, 'w') as of:
-            data = {}
-            data['download_path'] = ddir
-            data['config_file'] = os.path.abspath(config_file)
+            data = {
+                'download_path': ddir,
+                'config_file': os.path.abspath(config_file)
+            }
             of.write(json.dumps(data, sort_keys=True, indent=4) + '\n')
-
 
 
 if __name__ == '__main__':
