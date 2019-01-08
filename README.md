@@ -66,7 +66,7 @@ Example
 
 Download amplicon study:
 
-    $ fetch_reads.py -p ERP022256 -c fetchdata-config-local.json -v -d /home/<user>/temp/
+    $ fetch-read-tool -p SRP062869 -c fetchdata-config-local.json -v -d /home/<user>/temp/
 
 Fetch assembly files
 =====
@@ -76,7 +76,7 @@ Usage
 
 
     $ fetch_reads.py -h
-    usage: fetch_assemblies.py [-h] -p PROJECT [-c CONFIG_FILE] [-d DDIR]
+    usage: fetch-read-tool [-h] -p PROJECT [-c CONFIG_FILE] [-d DDIR]
                            [-s {ftp,filesystem}] [-v]
                            [-pr {1.0,2.0,3.0,4.0,4.1}] [-i]
 
@@ -102,4 +102,4 @@ Example
 
 Download assembly study:
 
-    $ fetch_reads.py -p ERP111288 -c fetchdata-config-local.json -v -d /home/<user>/temp/
+    $ fetch-assembly-tool -p ERP111288 -c fetchdata-config-local.json -v -d /home/<user>/temp/

@@ -25,7 +25,7 @@ from subprocess import call
 
 import sh
 
-from fetch_data.rename_fasta_header_util import rename_raw_file, \
+from src.rename_fasta_header_util import rename_raw_file, \
     change_fasta_headers
 
 __author__ = "Maxim Scheremetjew"
@@ -111,7 +111,7 @@ class ENADataFetcher(object):
         return ['study_id', 'sample_id', 'run_id', 'library_layout', 'file',
                 'file_path', 'tax_id',
                 'scientific_name', 'library_strategy', 'library_source',
-                'pipeline_version',
+                'LATEST_PIPELINE_VERSION',
                 'analysis_status', 'sample_biome', 'opt:assembly_id',
                 'opt:analysis_id']
 
@@ -216,7 +216,7 @@ class ENADataFetcher(object):
     def _retrieve_assembly_info_db(self, header_tag, eradao, enadao):
         logging.info("Reading assembly meta data from the ENA...")
         acc = self.project_acc
-        from ERADAO import ERADAO
+        from src.ERADAO import ERADAO
         metadata_analyses = ERADAO(eradao).retrieve_assembly_metadata(acc)
         if len(metadata_analyses) < 1:
             return False
@@ -224,8 +224,9 @@ class ENADataFetcher(object):
         # to deal wit the fact than some NCBI study do not have project_id
         if len(project_acc) < 3:
             project_acc = acc
-        from ENADAO import ENADAO
+        from src.ENADAO import ENADAO
         wgs_analyses = ENADAO(enadao).retrieve_assembly_data(project_acc)
+        print(json.dumps(wgs_analyses, indent=4))
         if len(wgs_analyses) < 1:
             logging.error(
                 "Failed to retrieve contigs and assembly data for study " + acc + "\n")
@@ -275,8 +276,8 @@ class ENADataFetcher(object):
         ena_db_config = self.ena_db_config
         acc = self.project_acc
 
-        from oracle_db_access_object import OracleDataAccessObject
-        from oracle_db_connection import OracleDBConnection
+        from src.oracle_db_access_object import OracleDataAccessObject
+        from src.oracle_db_connection import OracleDBConnection
 
         eradao = OracleDataAccessObject(
             OracleDBConnection(era_db_config.user, era_db_config.password,
@@ -430,7 +431,7 @@ class ENADataFetcher(object):
             logging.info("FASTA headers already changed!")
 
     def _retrieve_webin_account_id(self, eradao):
-        from ERADAO import ERADAO
+        from src.ERADAO import ERADAO
         results = ERADAO(eradao).retrieve_webin_accound_id(
             self.project_acc)
         return results[0]['SUBMISSION_ACCOUNT_ID']
@@ -574,7 +575,7 @@ def main():
                         required=False, action='count')
     parser.add_argument("-pr", "--pipeline-version",
                         help="Specify pipeline version e.g. 4.1",
-                        dest='pipeline_version',
+                        dest='LATEST_PIPELINE_VERSION',
                         choices=['1.0', '2.0', '3.0', '4.0', '4.1'],
                         required=False, default="4.1")
     parser.add_argument("-i", "--interactive",

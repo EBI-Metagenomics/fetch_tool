@@ -24,7 +24,7 @@ import sys
 import urllib.request
 from subprocess import call
 
-import ENAAPIUtils as apiutils
+from src import ENAAPIUtils as apiutils
 
 __author__ = "Hubert Denise, Simon Potter, Maxim Scheremetjew"
 __copyright__ = "Copyright (c) 2018 EMBL - European Bioinformatics Institute"
@@ -40,6 +40,11 @@ __status__ = "Development"
         1: Something failed. The warning message should tell you what.
         5: No raw data available yet in ENA.
 """
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+default_configfile_basename = os.path.join(script_dir, os.pardir, "fetchdata-config-default.json")
+
+LATEST_PIPELINE_VERSION = '4.1'
 
 
 class ENADataFetcher(object):
@@ -131,7 +136,7 @@ class ENADataFetcher(object):
         return ['study_id', 'sample_id', 'run_id', 'library_layout', 'file',
                 'file_path', 'tax_id',
                 'scientific_name', 'library_strategy', 'library_source',
-                'pipeline_version',
+                'LATEST_PIPELINE_VERSION',
                 'analysis_status', 'sample_biome', 'opt:assembly_id',
                 'opt:analysis_id']
 
@@ -277,7 +282,7 @@ class ENADataFetcher(object):
                     [fields[1], sample_id, fields[5], fields[9],
                      ';'.join(file_names), file_path,
                      fields[6],
-                     fields[7], fields[12], fields[13], pipeline_version,
+                     fields[7], fields[12], fields[13], LATEST_PIPELINE_VERSION,
                      'COMPLETED',
                      'biome_placeholder', 'opt:assembly_id',
                      'opt:analysis_id']) + '\n'
@@ -403,7 +408,7 @@ class ENADataFetcher(object):
                                             run['TAX_ID'], 'n/a',
                                             run['LIBRARY_STRATEGY'],
                                             run['LIBRARY_SOURCE'],
-                                            pipeline_version, 'COMPLETED',
+                                            LATEST_PIPELINE_VERSION, 'COMPLETED',
                                             'biome_placeholder',
                                             'opt:assembly_id',
                                             'opt: analysis_id']
@@ -452,7 +457,7 @@ class ENADataFetcher(object):
         logging.info(
             "Next step: Changing permission of the current working dir...")
         current_working_dir = os.getcwd()
-        chmod_command = ['chmod', '775', '-R', current_working_dir]
+        chmod_command = ['chmod', '-R', '775', current_working_dir]
         rv = subprocess.call(chmod_command)
         if rv:
             logging.error(
@@ -536,8 +541,7 @@ def read_project_list(fn):
         sys.exit(1)
     return plist
 
-
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(
         description="Tool to fetch project sequence data from ENA")
     parser.add_argument("-p", "--project", help="Project accession(s)",
@@ -586,8 +590,6 @@ if __name__ == '__main__':
                         required=False,
                         default=False)
     args = parser.parse_args()
-
-    pipeline_version = '4.1'
 
     # Identifying user name
     user_name = os.environ.get('USER')
@@ -641,9 +643,7 @@ if __name__ == '__main__':
 
     if not config_file:
         # try to load default config file, which is in the same location as the script itself
-        script_dir = os.path.dirname(__file__)
-        default_configfile_basename = "fetchdata-config-default.json"
-        config_file = os.path.join(script_dir, default_configfile_basename)
+        config_file = default_configfile_basename
         if not os.path.exists(config_file):
             logging.error(
                 "Configuration file with database parameters required")
@@ -668,6 +668,8 @@ if __name__ == '__main__':
                 OracleDBConnection(config["enaUser"], config["enaPassword"],
                                    config["enaHost"], config["enaPort"],
                                    config["enaInstance"]))
+
+
     with open(config_file) as fh:
         config = json.load(fh)
         ssh_max_attempts = config["ssh_max_attempts"]
@@ -677,14 +679,9 @@ if __name__ == '__main__':
         program = ENADataFetcher(ssh_max_attempts, url_max_attempts,
                                  ena_root_path, ena_login_hosts)
 
-    # Load ENA API details
-    script_pathname = os.path.dirname(sys.argv[0])
-    api_config_file = os.path.join(script_pathname + "/ENAAPIUtils.json")
-    with open(api_config_file) as fh2:
-        api_config = json.load(fh2)
-        api_url, trusted_brokers = api_config["enaAPIUrl"], api_config[
+        api_url, trusted_brokers = config["enaAPIUrl"], config[
             "trustedBrokers"]
-        api_username, api_password = api_config["enaAPIUsername"], api_config[
+        api_username, api_password = config["enaAPIUsername"], config[
             "enaAPIPassword"]
         if api_username and api_password:
             api_credentials = api_username + ":" + api_password
@@ -710,3 +707,8 @@ if __name__ == '__main__':
             data['download_path'] = ddir
             data['config_file'] = os.path.abspath(config_file)
             of.write(json.dumps(data, sort_keys=True, indent=4) + '\n')
+
+
+
+if __name__ == '__main__':
+    main()
