@@ -58,8 +58,9 @@ DCCMetagenomeConfig = collections.namedtuple('DCCMetagenomeConfig',
 class ENADataFetcher(object):
     def __init__(self, project_acc, pipeline_version, output_dir,
                  dcc_meta_confg, prod_user, era_db_config, ena_db_config,
-                 interactive, api_config):
+                 interactive, api_config, assembly_id_list):
         self.project_acc = project_acc
+        self.assembly_id_list = assembly_id_list
         self.pipeline_version = pipeline_version
         self.output_dir = output_dir
         self.interactive = interactive
@@ -105,6 +106,16 @@ class ENADataFetcher(object):
                     'No ENA contig name for ' + analysis_id + ' yet. Exiting')
                 sys.exit()
         return combine_analyses
+
+    def _filter_analyses(self, analyses):
+        if not self.assembly_id_list:
+            return analyses
+        result = []
+        for analysis_dict in analyses:
+            assembly_id = analysis_dict.get('ANALYSIS_ID')
+            if assembly_id in self.assembly_id_list:
+                result.append(analysis_dict)
+        return result
 
     @staticmethod
     def _get_column_headers_list():
@@ -213,7 +224,7 @@ class ENADataFetcher(object):
         else:
             logging.info("Files already decompressed!")
 
-    def _retrieve_assembly_info_db(self, header_tag, eradao, enadao):
+    def _retrieve_assembly_info_db(self, eradao, enadao):
         logging.info("Reading assembly meta data from the ENA...")
         acc = self.project_acc
         from ERADAO import ERADAO
@@ -230,39 +241,58 @@ class ENADataFetcher(object):
             logging.error(
                 "Failed to retrieve contigs and assembly data for study " + acc + "\n")
             return False
-        if header_tag == "Y":
-            mode = "w"
-        else:
-            mode = "a"
         analyses = self._combine_analyses(metadata_analyses, wgs_analyses)
-        with open(self.project_txt_file, mode) as fh, open(
-                self.download_file, mode) as dl:
-            if header_tag == "Y": fh.write(
-                "\t".join(self._get_column_headers_list()) + "\n")
-            for analysis in analyses:
-                analysis_id = analysis['ANALYSIS_ID']
-                assembly_id = analysis['GC_ID']
-                fh_path = analysis['DATA_FILE_PATH']
-                basename = os.path.basename(fh_path)
-                self.filename_to_analysis_id_lookup[basename] = analysis_id
-                path = os.path.join(self.dcc_meta_confg.ena_root_path, fh_path)
-                if len(path) < 26:
-                    logging.error(
-                        "Failed to get contig information to obtain path ")
-                    sys.exit(1)
-                local_file_name = os.path.basename(fh_path)
-                future_file_name = analysis_id + '.fasta.gz'
-                dl.write('\t'.join(
-                    [path, os.sep.join(['raw', local_file_name])]) + '\n')
-                fh.write('\t'.join(
-                    [analysis['STUDY_ID'], analysis['SAMPLE_ID'], analysis_id,
-                     'FASTA',
-                     future_file_name, fh_path, analysis['TAX_ID'], 'n/a',
-                     'ASSEMBLY', 'METAGENOMIC',
-                     self.pipeline_version, 'COMPLETED', 'biome_placeholder',
-                     assembly_id, analysis_id]) + '\n')
-                if not os.path.isdir('raw'):
-                    os.mkdir('raw')
+        filtered_analyses = self._filter_analyses(analyses)
+
+        existing_project_entries, existing_download_entries = [], []
+        if os.path.isfile(self.project_txt_file):
+            with open(self.project_txt_file, 'r') as fh:
+                existing_project_entries = fh.readlines()
+        if os.path.isfile(self.download_file):
+            with open(self.download_file, 'r') as dl:
+                existing_download_entries = dl.readlines()
+        new_download_entries = []
+        new_project_rows = []
+
+        headers_line = "\t".join(self._get_column_headers_list()) + '\n'
+        if len(existing_project_entries) == 0:
+            new_project_rows.append(headers_line)
+
+        for analysis in filtered_analyses:
+            analysis_id = analysis['ANALYSIS_ID']
+            assembly_id = analysis['GC_ID']
+            fh_path = analysis['DATA_FILE_PATH']
+            basename = os.path.basename(fh_path)
+            self.filename_to_analysis_id_lookup[basename] = analysis_id
+            path = os.path.join(self.dcc_meta_confg.ena_root_path, fh_path)
+            if len(path) < 26:
+                logging.error(
+                    "Failed to get contig information to obtain path ")
+                sys.exit(1)
+            local_file_name = os.path.basename(fh_path)
+            future_file_name = analysis_id + '.fasta.gz'
+            # Deal with the download file entries
+            new_download_entry = '\t'.join(
+                [path, os.sep.join(['raw', local_file_name])]) + '\n'
+            if new_download_entry not in existing_download_entries:
+                new_download_entries.append(new_download_entry)
+
+            # Deal with the project file entries
+            new_project_data_entry = '\t'.join(
+                [analysis['STUDY_ID'], analysis['SAMPLE_ID'], analysis_id,
+                 'FASTA',
+                 future_file_name, fh_path, analysis['TAX_ID'], 'n/a',
+                 'ASSEMBLY', 'METAGENOMIC',
+                 self.pipeline_version, 'COMPLETED', 'biome_placeholder',
+                 assembly_id, analysis_id]) + '\n'
+            if new_project_data_entry not in existing_project_entries:
+                new_project_rows.append(new_project_data_entry)
+
+        with open(self.project_txt_file, 'a') as fh:
+            fh.writelines(new_project_rows)
+        with open(self.download_file, 'a') as dl:
+            dl.writelines(new_download_entries)
+
         return True
 
     def fetch_data_from_ftp(self):
@@ -289,12 +319,11 @@ class ENADataFetcher(object):
                                ena_db_config.instance))
 
         exit_tag = 0
-        header = "Y"
         no_assembly_data_msg = "No assembly data for project " + acc
         found_assembly_data_msg = "Found assembly data for project " + acc
         prod_user_msg = "Using the production user for fetching data from dcc metagenome!"
 
-        if not self._retrieve_assembly_info_db(header, eradao, enadao):
+        if not self._retrieve_assembly_info_db(eradao, enadao):
             logging.warning(no_assembly_data_msg)
             exit_tag += 1  # sys.exit(1)
         else:
@@ -559,6 +588,12 @@ def main():
         description="Tool to fetch assemblies from ENA")
     parser.add_argument("-p", "--project", help="Project accession",
                         dest='project', required=True)
+    parser.add_argument("-as", "--assemblies",
+                        help="Analysis accession(s) (e.g. ERZ773283) whitespace separated. That option is useful if you want to download only "
+                             "certain project analyses",
+                        dest='project_assemblies',
+                        nargs='+',
+                        required=False)
     parser.add_argument("-c", "--config",
                         help="Configuration file [json]",
                         dest='config_file',
@@ -610,6 +645,7 @@ def main():
             prod_user))
 
     project_acc = args.project
+    assembly_id_list = args.project_assemblies
     source = args.source
     config_file = args.config_file
     pipeline_version = args.pipeline_version
@@ -624,7 +660,8 @@ def main():
 
     program = ENADataFetcher(project_acc, pipeline_version, output_dir,
                              dcc_meta_confg, prod_user, era_db_config,
-                             ena_db_config, interactive, api_config)
+                             ena_db_config, interactive, api_config,
+                             assembly_id_list)
 
     logging.info("Starting the program...")
     if source == 'filesystem':
