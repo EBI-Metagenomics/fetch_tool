@@ -1,8 +1,0 @@
-{
-  "trustedBrokers": [
-    "MGRAST"
-  ],
-  "enaAPIUrl": "https://www.ebi.ac.uk/ena/portal/api/search",
-  "enaAPIUsername": "",
-  "enaAPIPassword": ""
-}

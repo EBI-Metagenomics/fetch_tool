@@ -24,7 +24,7 @@ import sys
 import urllib.request
 from subprocess import call
 
-import ENAAPIUtils as apiutils
+from src import ENAAPIUtils as ApiUtils
 
 __author__ = "Hubert Denise, Simon Potter, Maxim Scheremetjew"
 __copyright__ = "Copyright (c) 2018 EMBL - European Bioinformatics Institute"
@@ -40,6 +40,11 @@ __status__ = "Development"
         1: Something failed. The warning message should tell you what.
         5: No raw data available yet in ENA.
 """
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+default_configfile_basename = os.path.join(script_dir, os.pardir, "fetchdata-config-default.json")
+
+LATEST_PIPELINE_VERSION = '4.1'
 
 
 class ENADataFetcher(object):
@@ -72,7 +77,7 @@ class ENADataFetcher(object):
                 sys.exit()
         return combine_analyses
 
-    def _trigger_ftp_download(self, url, fn, interactive):
+    def _trigger_ftp_download(self, url, fn, interactive, force):
         attempt = 0
         while True:
             try:
@@ -131,7 +136,7 @@ class ENADataFetcher(object):
         return ['study_id', 'sample_id', 'run_id', 'library_layout', 'file',
                 'file_path', 'tax_id',
                 'scientific_name', 'library_strategy', 'library_source',
-                'pipeline_version',
+                'LATEST_PIPELINE_VERSION',
                 'analysis_status', 'sample_biome', 'opt:assembly_id',
                 'opt:analysis_id']
 
@@ -277,7 +282,7 @@ class ENADataFetcher(object):
                     [fields[1], sample_id, fields[5], fields[9],
                      ';'.join(file_names), file_path,
                      fields[6],
-                     fields[7], fields[12], fields[13], pipeline_version,
+                     fields[7], fields[12], fields[13], LATEST_PIPELINE_VERSION,
                      'COMPLETED',
                      'biome_placeholder', 'opt:assembly_id',
                      'opt:analysis_id']) + '\n'
@@ -305,18 +310,18 @@ class ENADataFetcher(object):
                 "Unsupported result type specified: " + result_type)
         logging.info(
             "Checking if accession - " + accession + " - belongs to a trusted broker...")
-        api_query = apiutils.create_study_search_batch_query([accession])
+        api_query = ApiUtils.create_study_search_batch_query([accession])
         accession_field = 'SECONDARY_STUDY_ACCESSION'
         if result_type == 'sample':
-            api_query = apiutils.create_sample_search_batch_query([accession])
+            api_query = ApiUtils.create_sample_search_batch_query([accession])
             accession_field = 'SECONDARY_SAMPLE_ACCESSION'
 
         broker_name_field = 'BROKER_NAME'
         search_fields = [broker_name_field, accession_field]
-        response_str = apiutils.retrieve_metadata(result_type, api_query,
+        response_str = ApiUtils.retrieve_metadata(result_type, api_query,
                                                   search_fields, user_pass,
                                                   api_url)
-        processed_api_result = apiutils.parse_response_str(response_str,
+        processed_api_result = ApiUtils.parse_response_str(response_str,
                                                            accession_field)
         broker_name = self._get_broker_name(processed_api_result, accession,
                                             broker_name_field)
@@ -344,7 +349,7 @@ class ENADataFetcher(object):
         return result
 
     def _retrieve_project_info_db(self, acc, file, run_id_list, mode, api_url,
-                                  user_pass):
+                                  user_pass, eradao):
         from ERADAO import ERADAO
         runs = ERADAO(eradao).retrieve_generated_files(acc)
         run_accession_list = self._get_run_accessions(runs)
@@ -403,7 +408,7 @@ class ENADataFetcher(object):
                                             run['TAX_ID'], 'n/a',
                                             run['LIBRARY_STRATEGY'],
                                             run['LIBRARY_SOURCE'],
-                                            pipeline_version, 'COMPLETED',
+                                            LATEST_PIPELINE_VERSION, 'COMPLETED',
                                             'biome_placeholder',
                                             'opt:assembly_id',
                                             'opt: analysis_id']
@@ -422,24 +427,19 @@ class ENADataFetcher(object):
                      'n/a']) + '\n')
         return True
 
-    def download_project(self, acc, use_view, is_private, dao, enadao,
-                         prod_user, run_id_list, interactive, user_pass,
-                         api_url):
+    def download_project(self, acc, use_view, eradao, prod_user, run_id_list, interactive, user_pass,
+                         api_url, force):
         summary_file = acc + ".txt"
         use_dcc_metagenome = False
         exit_tag = 0
-        header = "Y"
         no_run_data_msg = "No run data for project " + acc
-        prod_user_msg = "Using the production user for fetching data from dcc metagenome!"
         if use_view:
             use_dcc_metagenome = True
             if not self._retrieve_project_info_db(acc, summary_file,
                                                   run_id_list, 'w', api_url,
-                                                  user_pass):
+                                                  user_pass, eradao):
                 logging.warning(no_run_data_msg)
                 exit_tag += 1  # sys.exit(1)
-            else:
-                header = "N"
         else:
             if not self._retrieve_project_info_ftp(acc, run_id_list, user_pass,
                                                    api_url):
@@ -452,7 +452,7 @@ class ENADataFetcher(object):
         logging.info(
             "Next step: Changing permission of the current working dir...")
         current_working_dir = os.getcwd()
-        chmod_command = ['chmod', '775', '-R', current_working_dir]
+        chmod_command = ['chmod', '-R', '775', current_working_dir]
         rv = subprocess.call(chmod_command)
         if rv:
             logging.error(
@@ -469,13 +469,13 @@ class ENADataFetcher(object):
                             continue
                     if use_dcc_metagenome and 'wgs' not in line:
                         self.download_fastq_dcc(url, local_file, prod_user,
-                                                interactive)
+                                                interactive, force)
                     else:
-                        self.download_fastq_ftp(url, local_file, interactive)
+                        self.download_fastq_ftp(url, local_file, interactive, force)
         else:
             logging.warning("Nothing to download!")
 
-    def download_fastq_dcc(self, path, fn, prod_user, interactive):
+    def download_fastq_dcc(self, path, fn, prod_user, interactive, force):
         logging.info("Retrieving data from /nfs/dcc_metagenome...")
         if not path[0] == '/' and 'wgs' not in path:
             path = os.sep.join([self.ena_root_path, path])
@@ -519,10 +519,10 @@ class ENADataFetcher(object):
                         sys.exit(1)
             attempt += 1
 
-    def download_fastq_ftp(self, url, fn, interactive):
+    def download_fastq_ftp(self, url, fn, interactive, force):
         if url[:3] == 'ftp':
             url = 'ftp://' + url
-        self._trigger_ftp_download(url, fn, interactive)
+        self._trigger_ftp_download(url, fn, interactive, force)
 
 
 def read_project_list(fn):
@@ -537,7 +537,7 @@ def read_project_list(fn):
     return plist
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(
         description="Tool to fetch project sequence data from ENA")
     parser.add_argument("-p", "--project", help="Project accession(s)",
@@ -567,16 +567,10 @@ if __name__ == '__main__':
     parser.add_argument("-r", "--private", help="Data is private",
                         dest='is_private', required=False,
                         action='store_true')
-    parser.add_argument("-s", "--skip",
-                        help="Skip runs with missing/incorrect data",
-                        dest='skip', required=False,
-                        action='store_true')
     parser.add_argument("-l", "--project_list", help="Project list",
                         dest='plist', required=False)
     parser.add_argument("-v", "--verbose", help="Verbose", dest='verbosity',
                         required=False, action='count')
-    parser.add_argument("-z", "--unzip", help="Unzip .gz files", dest='unzip',
-                        required=False, action='store_true')
     parser.add_argument("-o", "--output", help="Output summary [json]",
                         dest='output_file', required=False)
     parser.add_argument("-i", "--interactive",
@@ -586,8 +580,6 @@ if __name__ == '__main__':
                         required=False,
                         default=False)
     args = parser.parse_args()
-
-    pipeline_version = '4.1'
 
     # Identifying user name
     user_name = os.environ.get('USER')
@@ -604,11 +596,8 @@ if __name__ == '__main__':
     if not use_view and is_private:
         use_view = True
     ddir = os.path.abspath(args.ddir)
-    force = args.force
     verbosity = args.verbosity
     config_file = args.config_file
-    skip = args.skip
-    unzip = args.unzip
     output_file = args.output_file
     if output_file:
         if output_file[0] != '/':
@@ -641,9 +630,7 @@ if __name__ == '__main__':
 
     if not config_file:
         # try to load default config file, which is in the same location as the script itself
-        script_dir = os.path.dirname(__file__)
-        default_configfile_basename = "fetchdata-config-default.json"
-        config_file = os.path.join(script_dir, default_configfile_basename)
+        config_file = default_configfile_basename
         if not os.path.exists(config_file):
             logging.error(
                 "Configuration file with database parameters required")
@@ -652,8 +639,6 @@ if __name__ == '__main__':
             pass  # Default config files does exist and can be loaded
 
     eradao = None
-    enadao = None
-    config = {}
     if use_view:
         from oracle_db_access_object import OracleDataAccessObject
         from oracle_db_connection import OracleDBConnection
@@ -664,10 +649,7 @@ if __name__ == '__main__':
                 OracleDBConnection(config["eraUser"], config["eraPassword"],
                                    config["eraHost"], config["eraPort"],
                                    config["eraInstance"]))
-            enadao = OracleDataAccessObject(
-                OracleDBConnection(config["enaUser"], config["enaPassword"],
-                                   config["enaHost"], config["enaPort"],
-                                   config["enaInstance"]))
+
     with open(config_file) as fh:
         config = json.load(fh)
         ssh_max_attempts = config["ssh_max_attempts"]
@@ -677,14 +659,9 @@ if __name__ == '__main__':
         program = ENADataFetcher(ssh_max_attempts, url_max_attempts,
                                  ena_root_path, ena_login_hosts)
 
-    # Load ENA API details
-    script_pathname = os.path.dirname(sys.argv[0])
-    api_config_file = os.path.join(script_pathname + "/ENAAPIUtils.json")
-    with open(api_config_file) as fh2:
-        api_config = json.load(fh2)
-        api_url, trusted_brokers = api_config["enaAPIUrl"], api_config[
+        api_url, trusted_brokers = config["enaAPIUrl"], config[
             "trustedBrokers"]
-        api_username, api_password = api_config["enaAPIUsername"], api_config[
+        api_username, api_password = config["enaAPIUsername"], config[
             "enaAPIPassword"]
         if api_username and api_password:
             api_credentials = api_username + ":" + api_password
@@ -700,13 +677,17 @@ if __name__ == '__main__':
         logging.info("Handling project " + pacc)
 
         # Make a copy of the web uploader config file (a template version sleeps in the template sub folder)
-        program.download_project(pacc, use_view, is_private, eradao, enadao,
-                                 prod_user, run_id_list, interactive,
-                                 api_credentials, api_url)
+        program.download_project(pacc, use_view, eradao, prod_user, run_id_list, interactive,
+                                 api_credentials, api_url, args.force)
 
     if output_file:
         with open(output_file, 'w') as of:
-            data = {}
-            data['download_path'] = ddir
-            data['config_file'] = os.path.abspath(config_file)
+            data = {
+                'download_path': ddir,
+                'config_file': os.path.abspath(config_file)
+            }
             of.write(json.dumps(data, sort_keys=True, indent=4) + '\n')
+
+
+if __name__ == '__main__':
+    main()
