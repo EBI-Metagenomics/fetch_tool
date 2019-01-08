@@ -1,5 +1,5 @@
 ---
-- name: Fetch tool production installer
+- name: Installs a new version for the fetch script
   hosts: ebi_cli
   remote_user: '{{ user }}'
   become: true

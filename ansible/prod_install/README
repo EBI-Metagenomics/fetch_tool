@@ -1,43 +1,35 @@
-1. Standard Ansible call
+How to run the fetch_tool playbook?
 
-1.1 Pipeline version 3.0
+$ cd ansible/prod_install
 
-    ansible-playbook -i prod-inventory playbooks/install.yml --ask-pass
+//The version variable specifies the checkout clone output directory
+//dir_name: Name of the directory in which the tool will be install (find the full path in your Ansible variable file), e.g. develop
+//username: Change user name! Must be your organisation linux username, e.g. maxim
+//version: The name of the branch or tag version you want to check out, e.g. develop OR v4.0.5
+//tagged_version: Type true if you want to checkout/pull a tagged version or false if you want to checkout/pull a feature branch
+//env: Type dev if you you want to install the tool under the test-clones directory or prod if you want to install a new production clone
 
-1.2 Pipeline version 4.0
+$ ansible-playbook -vvv -i prod-inventory playbooks/install.yml --extra-vars "dir_name=v2.0 user=maxim version=web-updater-v2.0 tagged_version=true env=dev" --ask-pass --tags "new_version"
 
-    ansible-playbook -i prod-inventory playbooks/install-v4.0.yml --ask-pass
+Additional useful information:
 
-2. Using verbose mode
+How to add the Conda Ansible Module (https://github.com/UDST/ansible-conda)?
 
-    ansible-playbook -vvv -i prod-inventory playbooks/install.yml --ask-pass
+1. Change the Ansible configuration and set library variable
 
-3. Using tags to run a specific part of the configuration without running the whole playbook
-
-    ansible-playbook -i prod-inventory playbooks/install.yml --ask-pass --tags "init,miniconda"
-
-4. You may also apply tags to roles
-
-roles:
-    - { role: pipeline-v3.0, tags: ['production'] }
-
-
-5. How to add the Conda Ansible Module (https://github.com/UDST/ansible-conda)?
-
-5.1 Change the Ansible configuration and set library variable
-
-    nano /etc/ansible/ansible.cfg
+    $ nano /etc/ansible/ansible.cfg
 
     library        = /usr/share/ansible
 
-5.2 Download Conda module and unzip it in the library directory
+2. Download Conda module and unzip it in the library directory
 
     # You might have to do all those tasks as super user
-    cd /usr/share/ansible
-    wget -O ansible-conda-master.zip https://github.com/UDST/ansible-conda/archive/master.zip
+    $ cd /usr/share/ansible
 
-    unzip ansible-conda-master.zip
+    $ wget -O ansible-conda-master.zip https://github.com/UDST/ansible-conda/archive/master.zip
 
-5.3 Check if Conda module is in the list of install Ansible modules
+    $ unzip ansible-conda-master.zip
 
-    ansible-doc -l
+3. Check if Conda module is in the list of install Ansible modules
+
+    $ ansible-doc -l
