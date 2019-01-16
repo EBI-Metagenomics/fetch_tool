@@ -23,7 +23,7 @@ import subprocess
 import sys
 import urllib.request
 from subprocess import call
-
+from filelock import SoftFileLock
 from src import ENAAPIUtils as ApiUtils
 
 __author__ = "Hubert Denise, Simon Potter, Maxim Scheremetjew"
@@ -166,7 +166,7 @@ class ENADataFetcher(object):
             sys.exit(1)
 
     def populate_download_file(self, downloadable_files, path_regex,
-                               file_names, run_id, existing_download_rows,
+                               file_names, run_id,
                                new_entries, is_submitted_file=False,
                                file_dir='raw'):
         """
@@ -198,11 +198,10 @@ class ENADataFetcher(object):
             file_names.append(file_name)
             row = '\t'.join([downloadable_file,
                              os.sep.join([file_dir, file_names[-1]])]) + '\n'
-            if row not in existing_download_rows:
-                new_entries.append(row)
+            new_entries.add(row)
         return file_path
 
-    def _retrieve_project_info_ftp(self, acc, run_id_list, user_pass, api_url):
+    def _retrieve_project_info_ftp(self, acc, run_id_list, user_pass, api_url, trusted_brokers):
         data = self._retrieve_url(self.ena_project_url.format(acc))
         data = [s.decode().rstrip() for s in data]
         # check line count - must be min 2, inc header
@@ -212,20 +211,10 @@ class ENADataFetcher(object):
 
         project_file = acc + '.txt'
         download_file = 'download'
-        project_data, download_entries = [], []
-        if os.path.isfile(project_file):
-            with open(project_file, 'r') as fh:
-                project_data = fh.readlines()
-        if os.path.isfile(download_file):
-            with open(download_file, 'r') as dl:
-                download_entries = dl.readlines()
-        new_download_entries = []
-        new_project_rows = []
+        # Attempt to acquire locks on project then download file, on timeout give up and release both locks
 
-        headers_line = '\t'.join(self._get_column_headers_list()) + '\n'
-        # Write header line if not present
-        if len(project_data) == 0:
-            new_project_rows.append(headers_line)
+        download_entries = set()
+        project_entries = set()
 
         for line in data[1:]:
             processed_files = []
@@ -243,16 +232,13 @@ class ENADataFetcher(object):
                         logging.warning(
                             "Found a run - " + run_id + " - with submitted files only!")
                         if self._trusted_broker_check(sample_id, api_url,
-                                                      user_pass,
+                                                      user_pass, trusted_brokers,
                                                       result_type='sample'):
                             submitted_files = submitted_ftp.split(';')
                     else:
                         logging.warning(
                             "Found a run - " + run_id + " - without any processed or submitted files!")
 
-                    if force:
-                        logging.warning(
-                            "Force mode is activated. Will skip the download of this run and move onto the next sequence file!")
             else:
                 logging.error(
                     "Unexpected number of fields in downloaded TXT file!")
@@ -268,15 +254,13 @@ class ENADataFetcher(object):
                     file_path = self.populate_download_file(processed_files,
                                                             path_re,
                                                             file_names, run_id,
-                                                            download_entries,
-                                                            new_download_entries)
+                                                            download_entries)
 
                 if len(submitted_files) > 0:
                     file_path = self.populate_download_file(submitted_files,
                                                             path_re,
                                                             file_names, run_id,
                                                             download_entries,
-                                                            new_download_entries,
                                                             is_submitted_file=True)
                 new_row = '\t'.join(
                     [fields[1], sample_id, fields[5], fields[9],
@@ -286,17 +270,62 @@ class ENADataFetcher(object):
                      'COMPLETED',
                      'biome_placeholder', 'opt:assembly_id',
                      'opt:analysis_id']) + '\n'
-                if new_row not in project_data:
-                    new_project_rows.append(new_row)
+                project_entries.add(new_row)
             else:
                 logging.debug(run_id + " is filtered out.")
-        with open(project_file, 'a') as fh:
-            fh.writelines(new_project_rows)
-        with open('download', 'a') as dl:
-            dl.writelines(new_download_entries)
+
+        project_file_lockname = project_file + '.lock'
+        download_file_lockname = download_file + '.lock'
+        fh_lock = SoftFileLock(project_file_lockname)
+        dl_lock = SoftFileLock(download_file_lockname)
+
+        headers_line = '\t'.join(self._get_column_headers_list()) + '\n'
+        # # Write header line if not present
+        # if len(project_data) == 0:
+        #     new_project_rows.append(headers_line)
+        logging.info('Acquiring locks...')
+        fh_lock.acquire()
+        dl_lock.acquire()
+        logging.info('Got locks')
+
+        with open(project_file, 'a+') as fh, open(download_file, 'a+') as dl, fh_lock, dl_lock:
+            fh.seek(0)
+            dl.seek(0)
+            try:
+                project_data = fh.readlines()
+                # Remove header line
+                existing_project_rows = set(filter(lambda r: 'study_id' not in r, project_data))
+                existing_project_rows = existing_project_rows.union(project_entries)
+                new_project_data = [headers_line] + sorted(list(existing_project_rows))
+                fh.seek(0)
+                fh.writelines(new_project_data)
+                fh.truncate()
+
+                download_data = dl.readlines()
+
+                new_download_data = sorted(set(download_data).union(download_entries))
+                dl.seek(0)
+                dl.writelines(new_download_data)
+                dl.truncate()
+            except Exception as e:
+                # Attempt to revert data
+                try:
+                    fh.truncate()
+                    dl.truncate()
+                    fh.writelines(project_data)
+                    dl.writelines(download_data)
+                except Exception as e2:
+                    logging.error(e2)
+                    logging.error('Failed to revert {} and {}.'.format(project_file, download_file))
+                fh_lock.release()
+                dl_lock.release()
+                raise e
+            finally:
+                os.remove(project_file_lockname)
+                os.remove(download_file_lockname)
         return True
 
-    def _trusted_broker_check(self, accession, api_url, user_pass,
+    def _trusted_broker_check(self, accession, api_url, user_pass, trusted_brokers,
                               result_type='study'):
         """
 
@@ -349,11 +378,11 @@ class ENADataFetcher(object):
         return result
 
     def _retrieve_project_info_db(self, acc, file, run_id_list, mode, api_url,
-                                  user_pass, eradao):
+                                  user_pass, eradao, trusted_brokers):
         from ERADAO import ERADAO
         runs = ERADAO(eradao).retrieve_generated_files(acc)
         run_accession_list = self._get_run_accessions(runs)
-        if self._trusted_broker_check(acc, api_url, user_pass):
+        if self._trusted_broker_check(acc, api_url, user_pass, trusted_brokers):
             submitted_files = ERADAO(eradao).retrieve_submitted_files(acc)
             for submitted_file in submitted_files:
                 run_id = submitted_file['RUN_ID']
@@ -428,7 +457,7 @@ class ENADataFetcher(object):
         return True
 
     def download_project(self, acc, use_view, eradao, prod_user, run_id_list, interactive, user_pass,
-                         api_url, force):
+                         api_url, force, trusted_brokers):
         summary_file = acc + ".txt"
         use_dcc_metagenome = False
         exit_tag = 0
@@ -437,12 +466,12 @@ class ENADataFetcher(object):
             use_dcc_metagenome = True
             if not self._retrieve_project_info_db(acc, summary_file,
                                                   run_id_list, 'w', api_url,
-                                                  user_pass, eradao):
+                                                  user_pass, eradao, trusted_brokers):
                 logging.warning(no_run_data_msg)
                 exit_tag += 1  # sys.exit(1)
         else:
             if not self._retrieve_project_info_ftp(acc, run_id_list, user_pass,
-                                                   api_url):
+                                                   api_url, trusted_brokers):
                 logging.error(no_run_data_msg)
                 exit_tag += 2
         if exit_tag >= 2:
@@ -493,7 +522,6 @@ class ENADataFetcher(object):
                             'ConnectTimeout=3',
                             self.ena_login_hosts[
                                 attempt % n_hosts] + ":{}".format(path), fn])
-            print(command)
             rv = call(command)
             if not rv:
                 return
@@ -678,7 +706,7 @@ def main():
 
         # Make a copy of the web uploader config file (a template version sleeps in the template sub folder)
         program.download_project(pacc, use_view, eradao, prod_user, run_id_list, interactive,
-                                 api_credentials, api_url, args.force)
+                                 api_credentials, api_url, args.force, trusted_brokers)
 
     if output_file:
         with open(output_file, 'w') as of:
