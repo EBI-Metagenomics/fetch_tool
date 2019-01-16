@@ -580,10 +580,6 @@ def main():
                         dest='project_runs',
                         nargs='+',
                         required=False)
-    parser.add_argument("-c", "--config",
-                        help="Configuration file [json]",
-                        dest='config_file',
-                        required=False)
     parser.add_argument("-d", "--dir", help="Base directory for downloads",
                         dest='ddir', required=True)
     parser.add_argument("-f", "--force",
@@ -628,7 +624,6 @@ def main():
         use_view = True
     ddir = os.path.abspath(args.ddir)
     verbosity = args.verbosity
-    config_file = args.config_file
     output_file = args.output_file
     if output_file:
         if output_file[0] != '/':
@@ -659,15 +654,13 @@ def main():
     else:
         logging.info("Taking project accessions from command line")
 
-    if not config_file:
-        # try to load default config file, which is in the same location as the script itself
-        config_file = default_configfile_basename
-        if not os.path.exists(config_file):
-            logging.error(
-                "Configuration file with database parameters required")
-            sys.exit(1)
-        else:
-            pass  # Default config files does exist and can be loaded
+    config_file = default_configfile_basename
+    if not os.path.exists(config_file):
+        logging.error(
+            "Configuration file with database parameters required")
+        sys.exit(1)
+    else:
+        pass  # Default config files does exist and can be loaded
 
     eradao = None
     if use_view:
