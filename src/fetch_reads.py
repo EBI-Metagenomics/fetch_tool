@@ -42,9 +42,13 @@ __status__ = "Development"
 """
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-default_configfile_basename = os.path.join(script_dir, os.pardir, "fetchdata-config-default.json")
+
+default_configfile_basename = os.getenv('FETCH_TOOL_CONFIG',
+                                        os.path.join(script_dir, os.pardir, "fetchdata-config-default.json"))
 
 LATEST_PIPELINE_VERSION = '4.1'
+
+run_id_reg = re.compile('([ESD]RR\d{5,})')
 
 
 class ENADataFetcher(object):
@@ -487,13 +491,12 @@ class ENADataFetcher(object):
             logging.error(
                 "Could not change permission of the current working dir: " + current_working_dir)
             sys.exit(1)
-
         if os.path.isfile('download'):
             with open('download', 'r') as f:
                 for line in f:
                     url, local_file = line.rstrip().split('\t')
                     if run_id_list:
-                        run_id = os.path.basename(local_file).split('.')[0]
+                        run_id = run_id_reg.findall(local_file)[0]
                         if run_id not in run_id_list:
                             continue
                     if use_dcc_metagenome and 'wgs' not in line:
