@@ -1,0 +1,6 @@
+---
+# defaults emg production
+file_owner: "emgpr"
+file_group: "metagen"
+prod_clone_root_dir: "/hps/nobackup2/production/metagenomics/production-scripts/clones/fetch_tool"
+dev_clone_root_dir: "/hps/nobackup2/production/metagenomics/production-scripts/test-clones/fetch_tool"

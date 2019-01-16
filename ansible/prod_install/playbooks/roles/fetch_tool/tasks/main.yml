@@ -1,0 +1,42 @@
+---
+
+# START setup directories
+
+# Start: Pull the production code from GitHub
+
+- shell: echo {{ install_dest }}
+  tags: ['new_version']
+
+- name: Checking if checkout clone does already exist
+  stat: path="{{ install_dest }}"
+  register: install_step
+  tags: ['new_version']
+
+- name: Creating Git destination directory
+  file: path="{{ install_dest }}"
+        state=directory
+        mode=0755
+  when: not install_step.stat.exists
+  tags: ['new_version']
+
+
+- name: Initializing a new Git repo, Pulling production repo, Checking out feature branch or tagged version
+  command: "{{item.command}}"
+  args:
+      chdir: "{{ install_dest }}"
+  with_items:
+    - { command: "git init" }
+    - { command: "git fetch --depth 1 https://{{ git_access_token }}@{{ git_host }}/{{ git_username }}/{{ git_repo_name }}.git +{{ git_refspec_local }}/{{ git_feature_branch }}:{{git_refspec_remote }}/{{ git_feature_branch }}" }
+    - { command: "git checkout {{ git_checkout_branch }}/{{ git_feature_branch }}" }
+  when: not install_step.stat.exists
+  tags: ['new_version']
+
+# End installation procedure
+
+# Change mode of the checkout clone directory recursively
+- name: Changing the mode of the checkout clone directory recursively
+  file: path={{install_dest}} recurse=yes mode=0750
+  when: not install_step.stat.exists
+  tags: ['new_version']
+
+# END of the entire depolyment procedure

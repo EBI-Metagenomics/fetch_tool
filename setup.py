@@ -6,7 +6,7 @@ _base = os.path.dirname(os.path.abspath(__file__))
 _requirements = os.path.join(_base, 'requirements.txt')
 _requirements_test = os.path.join(_base, 'requirements-test.txt')
 
-version = '0.1.0'
+version = '0.2.0'
 
 install_requirements = []
 with open(_requirements) as f:
@@ -28,7 +28,8 @@ setup(name='fetch-tool',
       include_package_data=True,
       entry_points={
           'console_scripts': [
-              'fetch-assembly-tool=fetch_data.fetch_assemblies:main'
+              'fetch-assembly-tool=src.fetch_assemblies:main',
+              'fetch-read-tool=src.fetch_reads:main'
           ]
       },
       tests_require=test_requirements,
