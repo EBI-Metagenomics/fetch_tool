@@ -23,7 +23,7 @@ import subprocess
 import sys
 import urllib.request
 from subprocess import call
-from filelock import FileLock
+from filelock import SoftFileLock
 from src import ENAAPIUtils as ApiUtils
 
 __author__ = "Hubert Denise, Simon Potter, Maxim Scheremetjew"
@@ -273,37 +273,56 @@ class ENADataFetcher(object):
                 project_entries.add(new_row)
             else:
                 logging.debug(run_id + " is filtered out.")
-        fh_lock = FileLock(project_file + '.lock')
-        dl_lock = FileLock(download_file + '.lock')
+
+        project_file_lockname = project_file + '.lock'
+        download_file_lockname = download_file + '.lock'
+        fh_lock = SoftFileLock(project_file_lockname)
+        dl_lock = SoftFileLock(download_file_lockname)
 
         headers_line = '\t'.join(self._get_column_headers_list()) + '\n'
         # # Write header line if not present
         # if len(project_data) == 0:
         #     new_project_rows.append(headers_line)
-        with open(project_file, 'w+') as fh, open(download_file, 'w+') as dl, fh_lock, dl_lock:
+        logging.info('Acquiring locks...')
+        fh_lock.acquire()
+        dl_lock.acquire()
+        logging.info('Got locks')
+
+        with open(project_file, 'a+') as fh, open(download_file, 'a+') as dl, fh_lock, dl_lock:
+            fh.seek(0)
+            dl.seek(0)
             try:
                 project_data = fh.readlines()
                 # Remove header line
-                existing_project_rows = set(filter(lambda r: 'study_id' in r, project_data))
+                existing_project_rows = set(filter(lambda r: 'study_id' not in r, project_data))
                 existing_project_rows = existing_project_rows.union(project_entries)
                 new_project_data = [headers_line] + sorted(list(existing_project_rows))
+                fh.seek(0)
                 fh.writelines(new_project_data)
+                fh.truncate()
 
                 download_data = dl.readlines()
 
                 new_download_data = sorted(set(download_data).union(download_entries))
+                dl.seek(0)
                 dl.writelines(new_download_data)
+                dl.truncate()
             except Exception as e:
+                # Attempt to revert data
                 try:
+                    fh.truncate()
+                    dl.truncate()
                     fh.writelines(project_data)
                     dl.writelines(download_data)
-                except Exception as e:
-                    logging.error(e)
+                except Exception as e2:
+                    logging.error(e2)
                     logging.error('Failed to revert {} and {}.'.format(project_file, download_file))
                 fh_lock.release()
                 dl_lock.release()
                 raise e
-
+            finally:
+                os.remove(project_file_lockname)
+                os.remove(download_file_lockname)
         return True
 
     def _trusted_broker_check(self, accession, api_url, user_pass, trusted_brokers,
@@ -363,7 +382,7 @@ class ENADataFetcher(object):
         from ERADAO import ERADAO
         runs = ERADAO(eradao).retrieve_generated_files(acc)
         run_accession_list = self._get_run_accessions(runs)
-        if self._trusted_broker_check(acc, api_url, trusted_brokers, trusted_brokers, user_pass):
+        if self._trusted_broker_check(acc, api_url, user_pass, trusted_brokers):
             submitted_files = ERADAO(eradao).retrieve_submitted_files(acc)
             for submitted_file in submitted_files:
                 run_id = submitted_file['RUN_ID']
@@ -503,7 +522,6 @@ class ENADataFetcher(object):
                             'ConnectTimeout=3',
                             self.ena_login_hosts[
                                 attempt % n_hosts] + ":{}".format(path), fn])
-            print(command)
             rv = call(command)
             if not rv:
                 return
