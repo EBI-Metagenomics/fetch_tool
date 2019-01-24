@@ -399,7 +399,7 @@ class ENADataFetcher(object):
 
     def _retrieve_project_info_db(self, acc, file, run_id_list, mode, api_url,
                                   user_pass, eradao, trusted_brokers):
-        from ERADAO import ERADAO
+        from .ERADAO import ERADAO
         runs = ERADAO(eradao).retrieve_generated_files(acc)
         run_accession_list = self._get_run_accessions(runs)
         if self._trusted_broker_check(acc, api_url, user_pass,
@@ -685,8 +685,8 @@ def main():
 
     eradao = None
     if use_view:
-        from oracle_db_access_object import OracleDataAccessObject
-        from oracle_db_connection import OracleDBConnection
+        from .oracle_db_access_object import OracleDataAccessObject
+        from .oracle_db_connection import OracleDBConnection
 
         with open(config_file) as fh:
             config = json.load(fh)
