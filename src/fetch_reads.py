@@ -502,15 +502,6 @@ class ENADataFetcher(object):
             logging.warning("No data available for download!")
             sys.exit(5)
 
-        logging.info(
-            "Next step: Changing permission of the current working dir...")
-        current_working_dir = os.getcwd()
-        chmod_command = ['chmod', '-R', '775', current_working_dir]
-        rv = subprocess.call(chmod_command)
-        if rv:
-            logging.error(
-                "Could not change permission of the current working dir: " + current_working_dir)
-            sys.exit(1)
         if os.path.isfile('download'):
             with open('download', 'r') as f:
                 for line in f:
