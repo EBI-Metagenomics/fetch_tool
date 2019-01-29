@@ -504,18 +504,18 @@ class ENADataFetcher(object):
 
         if os.path.isfile('download'):
             with open('download', 'r') as f:
-                for line in f:
-                    url, local_file = line.rstrip().split('\t')
-                    if run_id_list:
-                        run_id = run_id_reg.findall(local_file)[0]
-                        if run_id not in run_id_list:
-                            continue
-                    if use_dcc_metagenome and 'wgs' not in line:
-                        self.download_fastq_dcc(url, local_file, prod_user,
-                                                interactive, force)
-                    else:
-                        self.download_fastq_ftp(url, local_file, interactive,
-                                                force)
+                rows = set(f.readlines())
+            for line in rows:
+                url, local_file = line.rstrip().split('\t')
+                if run_id_list:
+                    run_id = run_id_reg.findall(local_file)[0]
+                    if run_id not in run_id_list:
+                        continue
+                if use_dcc_metagenome and 'wgs' not in line:
+                    self.download_fastq_dcc(url, local_file, prod_user,
+                                            interactive, force)
+                else:
+                    self.download_fastq_ftp(url, local_file, interactive, force)
         else:
             logging.warning("Nothing to download!")
 
