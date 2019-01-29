@@ -127,7 +127,8 @@ class ENADataFetcher(object):
             try:
                 response = urllib.request.urlopen(url)
                 break
-            except urllib.request.URLError:
+            except urllib.request.URLError as e:
+                logging.error(e)
                 logging.warning("Error opening url " + url)
                 attempt += 1
             if attempt >= self.url_max_attempts:
@@ -300,8 +301,7 @@ class ENADataFetcher(object):
         dl_lock.acquire()
         logging.info('Got locks')
 
-        with open(project_file, 'a+') as fh, open(download_file,
-                                                  'a+') as dl, fh_lock, dl_lock:
+        with open(project_file, 'a+') as fh, open(download_file, 'a+') as dl, fh_lock, dl_lock:
             fh.seek(0)
             dl.seek(0)
             try:
@@ -314,16 +314,16 @@ class ENADataFetcher(object):
                 new_project_data = [headers_line] + sorted(
                     list(existing_project_rows))
                 fh.seek(0)
-                fh.writelines(new_project_data)
                 fh.truncate()
-
+                fh.writelines(new_project_data)
                 download_data = dl.readlines()
 
                 new_download_data = sorted(
                     set(download_data).union(download_entries))
                 dl.seek(0)
-                dl.writelines(new_download_data)
                 dl.truncate()
+                dl.writelines(new_download_data)
+
             except Exception as e:
                 # Attempt to revert data
                 try:
