@@ -297,11 +297,8 @@ class ENADataFetcher(object):
         # if len(project_data) == 0:
         #     new_project_rows.append(headers_line)
         logging.info('Acquiring locks...')
-        fh_lock.acquire()
-        dl_lock.acquire()
-        logging.info('Got locks')
-
         with open(project_file, 'a+') as fh, open(download_file, 'a+') as dl, fh_lock, dl_lock:
+            logging.info('Got locks')
             fh.seek(0)
             dl.seek(0)
             try:
@@ -348,7 +345,6 @@ class ENADataFetcher(object):
                               trusted_brokers,
                               result_type='study'):
         """
-
         :type accession: str
         :type api_url: str
         :type user_pass: str
