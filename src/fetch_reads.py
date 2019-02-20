@@ -237,6 +237,9 @@ class ENADataFetcher(object):
                     processed_files = fastq_ftp.split(';')
                 else:
                     run_id = fields[5]
+                    if len(run_id_list) > 0 and run_id not in run_id_list:
+                        continue
+
                     sample_id = fields[3]
                     submitted_ftp = fields[11]
                     if submitted_ftp:
