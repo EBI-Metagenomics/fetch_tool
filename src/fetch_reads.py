@@ -42,9 +42,14 @@ __status__ = "Development"
 """
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-default_configfile_basename = os.path.join(script_dir, os.pardir, "fetchdata-config-default.json")
+
+default_configfile_basename = os.getenv('FETCH_TOOL_CONFIG',
+                                        os.path.join(script_dir, os.pardir,
+                                                     "fetchdata-config-default.json"))
 
 LATEST_PIPELINE_VERSION = '4.1'
+
+run_id_reg = re.compile('([ESD]RR\d{5,})')
 
 
 class ENADataFetcher(object):
@@ -122,7 +127,8 @@ class ENADataFetcher(object):
             try:
                 response = urllib.request.urlopen(url)
                 break
-            except urllib.request.URLError:
+            except urllib.request.URLError as e:
+                logging.error(e)
                 logging.warning("Error opening url " + url)
                 attempt += 1
             if attempt >= self.url_max_attempts:
@@ -154,15 +160,16 @@ class ENADataFetcher(object):
         return None
 
     @staticmethod
-    def _get_file_name(file_path, run_id, counter, num_of_files):
-        if "fasta" in file_path:
+    def _get_file_name(file_name, run_id, counter, num_of_files):
+        file_name = file_name.lower()
+        if any(x in file_name for x in ['.fasta', '.fna']):
             return run_id + ".fasta.gz"
-        elif "fastq" in file_path:
+        elif ".fastq" in file_name:
             paired_end_number_label = "_" + str(
                 counter) if num_of_files > 1 else ""
             return run_id + paired_end_number_label + ".fastq.gz"
         else:
-            logging.warning("Unknown sequence file format: " + file_path)
+            logging.warning("Unknown sequence file format: " + file_name)
             sys.exit(1)
 
     def populate_download_file(self, downloadable_files, path_regex,
@@ -190,18 +197,22 @@ class ENADataFetcher(object):
 
             file_path = path_match.group(1)
             if is_submitted_file:
-                file_name = self._get_file_name(file_path.lower(), run_id,
-                                                counter,
-                                                len(downloadable_files))
+                submitted_file_name = path_match.group(2)
+                processed_file_name = self._get_file_name(submitted_file_name,
+                                                          run_id,
+                                                          counter,
+                                                          len(
+                                                              downloadable_files))
             else:
-                file_name = path_match.group(2)
-            file_names.append(file_name)
+                processed_file_name = path_match.group(2)
+            file_names.append(processed_file_name)
             row = '\t'.join([downloadable_file,
                              os.sep.join([file_dir, file_names[-1]])]) + '\n'
             new_entries.add(row)
         return file_path
 
-    def _retrieve_project_info_ftp(self, acc, run_id_list, user_pass, api_url, trusted_brokers):
+    def _retrieve_project_info_ftp(self, acc, run_id_list, user_pass, api_url,
+                                   trusted_brokers):
         data = self._retrieve_url(self.ena_project_url.format(acc))
         data = [s.decode().rstrip() for s in data]
         # check line count - must be min 2, inc header
@@ -226,13 +237,17 @@ class ENADataFetcher(object):
                     processed_files = fastq_ftp.split(';')
                 else:
                     run_id = fields[5]
+                    if len(run_id_list) > 0 and run_id not in run_id_list:
+                        continue
+
                     sample_id = fields[3]
                     submitted_ftp = fields[11]
                     if submitted_ftp:
                         logging.warning(
                             "Found a run - " + run_id + " - with submitted files only!")
                         if self._trusted_broker_check(sample_id, api_url,
-                                                      user_pass, trusted_brokers,
+                                                      user_pass,
+                                                      trusted_brokers,
                                                       result_type='sample'):
                             submitted_files = submitted_ftp.split(';')
                     else:
@@ -266,7 +281,8 @@ class ENADataFetcher(object):
                     [fields[1], sample_id, fields[5], fields[9],
                      ';'.join(file_names), file_path,
                      fields[6],
-                     fields[7], fields[12], fields[13], LATEST_PIPELINE_VERSION,
+                     fields[7], fields[12], fields[13],
+                     LATEST_PIPELINE_VERSION,
                      'COMPLETED',
                      'biome_placeholder', 'opt:assembly_id',
                      'opt:analysis_id']) + '\n'
@@ -284,29 +300,30 @@ class ENADataFetcher(object):
         # if len(project_data) == 0:
         #     new_project_rows.append(headers_line)
         logging.info('Acquiring locks...')
-        fh_lock.acquire()
-        dl_lock.acquire()
-        logging.info('Got locks')
-
         with open(project_file, 'a+') as fh, open(download_file, 'a+') as dl, fh_lock, dl_lock:
+            logging.info('Got locks')
             fh.seek(0)
             dl.seek(0)
             try:
                 project_data = fh.readlines()
                 # Remove header line
-                existing_project_rows = set(filter(lambda r: 'study_id' not in r, project_data))
-                existing_project_rows = existing_project_rows.union(project_entries)
-                new_project_data = [headers_line] + sorted(list(existing_project_rows))
+                existing_project_rows = set(
+                    filter(lambda r: 'study_id' not in r, project_data))
+                existing_project_rows = existing_project_rows.union(
+                    project_entries)
+                new_project_data = [headers_line] + sorted(
+                    list(existing_project_rows))
                 fh.seek(0)
-                fh.writelines(new_project_data)
                 fh.truncate()
-
+                fh.writelines(new_project_data)
                 download_data = dl.readlines()
 
-                new_download_data = sorted(set(download_data).union(download_entries))
+                new_download_data = sorted(
+                    set(download_data).union(download_entries))
                 dl.seek(0)
-                dl.writelines(new_download_data)
                 dl.truncate()
+                dl.writelines(new_download_data)
+
             except Exception as e:
                 # Attempt to revert data
                 try:
@@ -316,7 +333,9 @@ class ENADataFetcher(object):
                     dl.writelines(download_data)
                 except Exception as e2:
                     logging.error(e2)
-                    logging.error('Failed to revert {} and {}.'.format(project_file, download_file))
+                    logging.error(
+                        'Failed to revert {} and {}.'.format(project_file,
+                                                             download_file))
                 fh_lock.release()
                 dl_lock.release()
                 raise e
@@ -325,10 +344,10 @@ class ENADataFetcher(object):
                 os.remove(download_file_lockname)
         return True
 
-    def _trusted_broker_check(self, accession, api_url, user_pass, trusted_brokers,
+    def _trusted_broker_check(self, accession, api_url, user_pass,
+                              trusted_brokers,
                               result_type='study'):
         """
-
         :type accession: str
         :type api_url: str
         :type user_pass: str
@@ -379,10 +398,11 @@ class ENADataFetcher(object):
 
     def _retrieve_project_info_db(self, acc, file, run_id_list, mode, api_url,
                                   user_pass, eradao, trusted_brokers):
-        from ERADAO import ERADAO
+        from .ERADAO import ERADAO
         runs = ERADAO(eradao).retrieve_generated_files(acc)
         run_accession_list = self._get_run_accessions(runs)
-        if self._trusted_broker_check(acc, api_url, user_pass, trusted_brokers):
+        if self._trusted_broker_check(acc, api_url, user_pass,
+                                      trusted_brokers):
             submitted_files = ERADAO(eradao).retrieve_submitted_files(acc)
             for submitted_file in submitted_files:
                 run_id = submitted_file['RUN_ID']
@@ -437,7 +457,8 @@ class ENADataFetcher(object):
                                             run['TAX_ID'], 'n/a',
                                             run['LIBRARY_STRATEGY'],
                                             run['LIBRARY_SOURCE'],
-                                            LATEST_PIPELINE_VERSION, 'COMPLETED',
+                                            LATEST_PIPELINE_VERSION,
+                                            'COMPLETED',
                                             'biome_placeholder',
                                             'opt:assembly_id',
                                             'opt: analysis_id']
@@ -456,7 +477,8 @@ class ENADataFetcher(object):
                      'n/a']) + '\n')
         return True
 
-    def download_project(self, acc, use_view, eradao, prod_user, run_id_list, interactive, user_pass,
+    def download_project(self, acc, use_view, eradao, prod_user, run_id_list,
+                         interactive, user_pass,
                          api_url, force, trusted_brokers):
         summary_file = acc + ".txt"
         use_dcc_metagenome = False
@@ -466,7 +488,8 @@ class ENADataFetcher(object):
             use_dcc_metagenome = True
             if not self._retrieve_project_info_db(acc, summary_file,
                                                   run_id_list, 'w', api_url,
-                                                  user_pass, eradao, trusted_brokers):
+                                                  user_pass, eradao,
+                                                  trusted_brokers):
                 logging.warning(no_run_data_msg)
                 exit_tag += 1  # sys.exit(1)
         else:
@@ -478,29 +501,20 @@ class ENADataFetcher(object):
             logging.warning("No data available for download!")
             sys.exit(5)
 
-        logging.info(
-            "Next step: Changing permission of the current working dir...")
-        current_working_dir = os.getcwd()
-        chmod_command = ['chmod', '-R', '775', current_working_dir]
-        rv = subprocess.call(chmod_command)
-        if rv:
-            logging.error(
-                "Could not change permission of the current working dir: " + current_working_dir)
-            sys.exit(1)
-
         if os.path.isfile('download'):
             with open('download', 'r') as f:
-                for line in f:
-                    url, local_file = line.rstrip().split('\t')
-                    if run_id_list:
-                        run_id = os.path.basename(local_file).split('.')[0]
-                        if run_id not in run_id_list:
-                            continue
-                    if use_dcc_metagenome and 'wgs' not in line:
-                        self.download_fastq_dcc(url, local_file, prod_user,
-                                                interactive, force)
-                    else:
-                        self.download_fastq_ftp(url, local_file, interactive, force)
+                rows = set(f.readlines())
+            for line in rows:
+                url, local_file = line.rstrip().split('\t')
+                if run_id_list:
+                    run_id = run_id_reg.findall(local_file)[0]
+                    if run_id not in run_id_list:
+                        continue
+                if use_dcc_metagenome and 'wgs' not in line:
+                    self.download_fastq_dcc(url, local_file, prod_user,
+                                            interactive, force)
+                else:
+                    self.download_fastq_ftp(url, local_file, interactive, force)
         else:
             logging.warning("Nothing to download!")
 
@@ -577,10 +591,6 @@ def main():
                         dest='project_runs',
                         nargs='+',
                         required=False)
-    parser.add_argument("-c", "--config",
-                        help="Configuration file [json]",
-                        dest='config_file',
-                        required=False)
     parser.add_argument("-d", "--dir", help="Base directory for downloads",
                         dest='ddir', required=True)
     parser.add_argument("-f", "--force",
@@ -625,7 +635,6 @@ def main():
         use_view = True
     ddir = os.path.abspath(args.ddir)
     verbosity = args.verbosity
-    config_file = args.config_file
     output_file = args.output_file
     if output_file:
         if output_file[0] != '/':
@@ -656,20 +665,18 @@ def main():
     else:
         logging.info("Taking project accessions from command line")
 
-    if not config_file:
-        # try to load default config file, which is in the same location as the script itself
-        config_file = default_configfile_basename
-        if not os.path.exists(config_file):
-            logging.error(
-                "Configuration file with database parameters required")
-            sys.exit(1)
-        else:
-            pass  # Default config files does exist and can be loaded
+    config_file = default_configfile_basename
+    if not os.path.exists(config_file):
+        logging.error(
+            "Configuration file with database parameters required")
+        sys.exit(1)
+    else:
+        pass  # Default config files does exist and can be loaded
 
     eradao = None
     if use_view:
-        from oracle_db_access_object import OracleDataAccessObject
-        from oracle_db_connection import OracleDBConnection
+        from .oracle_db_access_object import OracleDataAccessObject
+        from .oracle_db_connection import OracleDBConnection
 
         with open(config_file) as fh:
             config = json.load(fh)
@@ -705,8 +712,10 @@ def main():
         logging.info("Handling project " + pacc)
 
         # Make a copy of the web uploader config file (a template version sleeps in the template sub folder)
-        program.download_project(pacc, use_view, eradao, prod_user, run_id_list, interactive,
-                                 api_credentials, api_url, args.force, trusted_brokers)
+        program.download_project(pacc, use_view, eradao, prod_user,
+                                 run_id_list, interactive,
+                                 api_credentials, api_url, args.force,
+                                 trusted_brokers)
 
     if output_file:
         with open(output_file, 'w') as of:
