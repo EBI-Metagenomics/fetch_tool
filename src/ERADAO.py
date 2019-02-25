@@ -18,6 +18,16 @@ class ERADAO(object):
         """
         self.data_access_object = data_access_object
 
+    def retrieve_study_accessions(self, run_ids):
+        """
+            Returns a list of study_ids For run accessions in run_ids
+        :param run_ids:
+        :return:
+        """
+        runs = ",".join(['\'' + run + '\'' for run in run_ids])
+        query = "SELECT study_id FROM v_mgp_run_file WHERE run_id IN ({}) GROUP BY study_id".format(runs)
+        return self.data_access_object._runQuery(query)
+
     def retrieve_submitted_files(self, study_id):
         """
             Returns a list of submitted files.
