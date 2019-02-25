@@ -2,10 +2,13 @@ language: python
 python:
   - "3.5"
   - "3.6"
+env:
+  - TEST_SUITE=integration
+  - TEST_SUITE=unit
 
 install:
   - python setup.py install
   - pip install -r requirements-test.txt
 
 script:
-  - pytest . -rs
+  - pytest -s -vv tests/$TEST_SUITE/
