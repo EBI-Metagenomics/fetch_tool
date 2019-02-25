@@ -28,8 +28,8 @@ setup(name='fetch-tool',
       include_package_data=True,
       entry_points={
           'console_scripts': [
-              'fetch-assembly-tool=src.fetch_assemblies:main',
-              'fetch-read-tool=src.fetch_reads:main'
+              'fetch-assembly-tool=src.abstract_fetch_assemblies:main',
+              'fetch-read-tool=src.abstract_fetch_reads:main'
           ]
       },
       tests_require=test_requirements,

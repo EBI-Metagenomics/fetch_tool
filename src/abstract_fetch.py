@@ -205,6 +205,12 @@ class AbstractDataFetcher(ABC):
         open(filepath, 'a').close()
 
     def write_project_download_file(self, project_accession, new_rows):
+        new_download_rows = []
+        for run in new_rows:
+            for file in run['file'].split(';'):
+                row = '\t'.join([run['file_path'], os.path.join('raw', os.path.basename(file))]) + '\n'
+                new_download_rows.append(row)
+
         download_file = self.get_project_download_file(project_accession)
         if not os.path.isfile(download_file):
             self.create_empty_file(download_file)
@@ -213,7 +219,7 @@ class AbstractDataFetcher(ABC):
         dh_lock = SoftFileLock(download_file_lock)
         with dh_lock:
             existing_rows = set(self.read_download_data(project_accession))
-            existing_rows = existing_rows.union(set(new_rows))
+            existing_rows = existing_rows.union(set(new_download_rows))
             with open(download_file, 'w+') as f:
                 f.writelines(sorted(existing_rows))
 
@@ -314,8 +320,8 @@ class AbstractDataFetcher(ABC):
 
     @staticmethod
     def load_oracle_connection(user, password, host, port, instance):
-        from oracle_db_access_object import OracleDataAccessObject
-        from oracle_db_connection import OracleDBConnection
+        from src.oracle_db_access_object import OracleDataAccessObject
+        from src.oracle_db_connection import OracleDBConnection
         return OracleDataAccessObject(OracleDBConnection(user, password, host, port, instance))
 
     def _retrieve_ena_url(self, url):

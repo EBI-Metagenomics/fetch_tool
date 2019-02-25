@@ -7,7 +7,7 @@
 # import unittest
 # import shutil
 #
-# FIXTURES_DIR = os.path.join(os.path.dirname(__file__), 'fixtures')
+# FIXTURES_DIR = os.path.join(os.path.tmpdir(__file__), 'fixtures')
 #
 #
 # def exec_fetch_cmd(study_id, dir, runs=None):

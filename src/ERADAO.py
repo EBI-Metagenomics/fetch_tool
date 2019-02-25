@@ -35,7 +35,7 @@ class ERADAO(object):
         :return: list[dict]
         """
 
-        query = "SELECT study_id, sample_id, run_id, library_layout, data_file_path, tax_id, library_strategy, library_source, data_file_role FROM v_mgp_run_file WHERE study_id = '{}' and DATA_FILE_ROLE = 'SUBMISSION_FILE' and (DATA_FILE_FORMAT='FASTA' OR DATA_FILE_FORMAT='FASTQ') and DATA_FILE_PATH not like 'err%'".format(
+        query = "SELECT study_id, sample_id, run_id, library_layout, data_file_path, tax_id, library_strategy, library_source, data_file_role, md5 FROM v_mgp_run_file WHERE study_id = '{}' and DATA_FILE_ROLE = 'SUBMISSION_FILE' and (DATA_FILE_FORMAT='FASTA' OR DATA_FILE_FORMAT='FASTQ') and DATA_FILE_PATH not like 'err%'".format(
             study_id)
         return self.data_access_object._runQuery(query)
 
@@ -46,7 +46,7 @@ class ERADAO(object):
         :return:
         """
 
-        query = "SELECT study_id, sample_id, run_id, library_layout, data_file_path, tax_id, library_strategy, library_source, data_file_role FROM v_mgp_run_file WHERE study_id = '{}' and DATA_FILE_ROLE = 'GENERATED_FILE' and DATA_FILE_FORMAT='FASTQ' and DATA_FILE_PATH not like 'err%'".format(
+        query = "SELECT study_id, sample_id, run_id, library_layout, data_file_path, tax_id, library_strategy, library_source, data_file_role, md5 FROM v_mgp_run_file WHERE study_id = '{}' and DATA_FILE_ROLE = 'GENERATED_FILE' and DATA_FILE_FORMAT='FASTQ' and DATA_FILE_PATH not like 'err%'".format(
             study_id)
         return self.data_access_object._runQuery(query)
 

@@ -1,20 +1,21 @@
 import re
 import logging
-import os
-import sys
 from src.ERADAO import ERADAO
 
-from src.abstract_fetch import AbstractDataFetcher
+from .abstract_fetch import AbstractDataFetcher
 
 path_re = re.compile(r'(.*)/(.*)')
 
 
 class FetchReads(AbstractDataFetcher):
     DEFAULT_HEADERS = ['study_id', 'sample_id', 'run_id', 'library_layout', 'file', 'file_path', 'tax_id',
-                       'scientific_name', 'library_strategy', 'library_source',
-                       'LATEST_PIPELINE_VERSION analysis_status sample_biome', 'opt:assembly_id opt:analysis_id']
+                       'scientific_name', 'library_strategy', 'library_source']
 
-    ENA_PROJECT_URL = 'http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession={0}&result=read_run&fields=study_accession,secondary_study_accession,sample_accession,secondary_sample_accession,experiment_accession,run_accession,tax_id,scientific_name,instrument_model,library_layout,fastq_ftp,fastq_md5,submitted_ftp,submitted_md5,library_strategy,library_source,broker_name&download=txt'
+    ENA_PROJECT_URL = 'http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession={0}&result=read_run&' \
+                      'fields=study_accession,secondary_study_accession,sample_accession,secondary_sample_accession,' \
+                      'experiment_accession,run_accession,tax_id,scientific_name,instrument_model,library_layout,' \
+                      'fastq_ftp,fastq_md5,submitted_ftp,submitted_md5,library_strategy,library_source,broker_name&' \
+                      'download=txt'
 
     def __init__(self, argv=None):
         self.runs = None
@@ -83,12 +84,18 @@ class FetchReads(AbstractDataFetcher):
             'library_source': run['LIBRARY_SOURCE']
         }
 
+    def _retrieve_era_submitted_data(self, project_accession):
+        return ERADAO(self.eradao).retrieve_submitted_files(project_accession)
+
+    def _retrieve_era_generated_data(self, project_accession):
+        return ERADAO(self.eradao).retrieve_generated_files(project_accession)
+
     def _retrieve_project_info_db(self, project_accession):
         # Get all generated study data from ENA
-        study_run_data = ERADAO(self.eradao).retrieve_generated_files(project_accession)
+        study_run_data = self._retrieve_era_generated_data(project_accession)
         # Add all runs which don't have generated data
         if self._study_has_permitted_broker(project_accession):
-            submitted_files = ERADAO(self.eradao).retrieve_submitted_files(project_accession)
+            submitted_files = self._retrieve_era_submitted_data(project_accession)
             existing_accessions = self._get_study_run_accessions(study_run_data)
             study_run_data.extend([f for f in submitted_files if f['RUN_ID'] not in existing_accessions])
         else:
@@ -117,8 +124,8 @@ class FetchReads(AbstractDataFetcher):
         rundata['DATA_FILE_ROLE'] = 'SUBMISSION_FILE' if is_submitted_file else 'GENERATED_FILE'
         rundata['DATA_FILE_PATH'] = rundata.get('fastq_ftp') or rundata.get('submitted_ftp')
         rundata['MD5'] = rundata.get('fastq_md5') or rundata.get('submitted_md5')
-        del rundata['fastq_ftp']
-        del rundata['submitted_ftp']
+        for key in ('fastq_ftp', 'submitted_ftp', 'fastq_md5', 'submitted_md5'):
+            del rundata[key]
         rundata['RUN_ID'] = rundata.pop('run_accession')
         rundata['TAX_ID'] = rundata.pop('tax_id')
         rundata['LIBRARY_STRATEGY'] = rundata.pop('library_strategy')
@@ -138,12 +145,7 @@ class FetchReads(AbstractDataFetcher):
         new_run_rows = list(map(self.map_project_info_db_row, new_runs))
         self.write_project_description_file(project_accession, new_run_rows)
 
-        new_download_rows = []
-        for run in new_run_rows:
-            for file in run['file'].split(';'):
-                row = '\t'.join([run['file_path'], os.path.join('raw', os.path.basename(file))]) + '\n'
-                new_download_rows.append(row)
-                # self.write_project_download_file(project_accession, new_download_rows)
+        self.write_project_download_file(project_accession, new_run_rows)
 
 
 def main():
