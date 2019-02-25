@@ -205,8 +205,7 @@ class TestFetchReads:
         }
 
     def test_retrieve_project_info_ftp_should_fetch_all_runs(self, tmpdir):
-        tmpdir = str(tmpdir)
-        fetch = afr.FetchReads(argv=['-p', 'ERP003634', '-d', tmpdir])
+        fetch = afr.FetchReads(argv=['-p', 'ERP003634', '-d', str(tmpdir)])
         runs = fetch._retrieve_project_info_ftp('ERP110686')
         assert len(runs) == 2
 
@@ -228,12 +227,13 @@ class TestFetchReads:
                  'MD5': '899eb5ab522ebc2c98bc567f3c3ad7d8'}]
 
     @patch('src.abstract_fetch_reads.FetchReads._retrieve_era_generated_data')
+    @patch('src.abstract_fetch_reads.FetchReads._get_studies_brokers')
     @patch('src.abstract_fetch_reads.FetchReads._study_has_permitted_broker')
-    def test_retrieve_project_info_db_should_not_use_generated_data(self, mocked_class1, mocked_class2, tmpdir):
-        tmpdir = str(tmpdir)
+    def test_retrieve_project_info_db_should_not_use_generated_data(self, mocked_class1, mocked_class2, mocked_class3, tmpdir):
         afr.FetchReads._retrieve_era_generated_data = self.mock_db_response_generated_data
         afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: False
-        fetch = afr.FetchReads(argv=['-p', 'ERP113309', '-d', tmpdir, '--private'])
+        afr.FetchReads._get_studies_brokers = lambda *args, **kwargs: {'ERP113309': ''}
+        fetch = afr.FetchReads(argv=['-p', 'ERP113309', '-d', str(tmpdir), '--private'])
         runs = fetch._retrieve_project_info_db('ERP113309')
         assert len(runs) == 2
 
@@ -242,10 +242,28 @@ class TestFetchReads:
     @patch('src.abstract_fetch_reads.FetchReads._study_has_permitted_broker')
     def test_retrieve_project_info_db_should_add_submitted_data(self, mocked_class1, mocked_class2,
                                                                 mocked_class3, tmpdir):
-        tmpdir = str(tmpdir)
         afr.FetchReads._retrieve_era_generated_data = self.mock_db_response_generated_data
         afr.FetchReads._retrieve_era_submitted_data = self.mock_db_response_submitted_data
         afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: True
-        fetch = afr.FetchReads(argv=['-p', 'ERP113309', '-d', tmpdir, '--private'])
+        afr.FetchReads._get_studies_brokers = lambda *args, **kwargs: {'ERP113309': ''}
+        fetch = afr.FetchReads(argv=['-p', 'ERP113309', '-d', str(tmpdir), '--private'])
         runs = fetch._retrieve_project_info_db('ERP113309')
         assert len(runs) == 3
+
+    @patch('src.abstract_fetch_reads.ERADAO.retrieve_study_accessions')
+    def test_process_additional_args_should_find_study_accessions_for_runs(self, mocked_class1, tmpdir):
+        study_accession = 'ERP001736'
+        run_id = 'ERR599083'
+        afr.ERADAO.retrieve_study_accessions = lambda *args, **kwargs: [{'STUDY_ID': study_accession}]
+        afr.FetchReads._retrieve_era_generated_data = self.mock_db_response_generated_data
+        afr.FetchReads._retrieve_era_submitted_data = self.mock_db_response_submitted_data
+        afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: True
+        fetch = afr.FetchReads(argv=['-ru', run_id, '-d', str(tmpdir), '--private'])
+        fetch._process_additional_args()
+        assert fetch.runs == [run_id]
+        assert fetch.args.projects == [study_accession]
+
+    def test_process_additional_args_should_raise_exception_if_no_private_flag(self, tmpdir):
+        with pytest.raises(NotImplementedError):
+            afr.FetchReads(argv=['-ru', 'ERR599083', '-d', str(tmpdir)])
+
