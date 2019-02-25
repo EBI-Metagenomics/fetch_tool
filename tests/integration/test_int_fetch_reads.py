@@ -79,7 +79,7 @@ def validate_single_study_run(tmpdir):
         assert os.path.getsize(f_path) > 0
 
 
-@unittest.skipIf("TRAVIS" in os.environ and os.environ["TRAVIS"] == "true", "Skipping this test on Travis CI.")
+@unittest.skipIf(os.environ.get('TRAVIS'), "Skipping this test on Travis CI.")
 class TestFetchCompleteStudyReads:
     def test_fetch_all_study_data(self, tmpdir):
         with WorkingDir(tmpdir):
