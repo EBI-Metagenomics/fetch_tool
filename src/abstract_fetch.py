@@ -38,17 +38,19 @@ class AbstractDataFetcher(ABC):
         self.force_mode = self.args.force
 
         self.prod_user = os.environ.get('USER') == 'emgpr'
-        if self.args.private:
-            self.init_era_dao()
-            self.init_ena_dao()
-        else:
-            self.eradao = None
-            self.enadao = None
 
         self._process_additional_args()
         self.projects = self.args.projects
         self.project_accessions = self._get_project_accessions(self.args)
-        self.study_brokers = self._get_studies_brokers(self.project_accessions)
+
+        if self.args.private:
+            self.init_era_dao()
+            self.init_ena_dao()
+            self.study_brokers = self._get_studies_brokers(self.project_accessions)
+        else:
+            self.eradao = None
+            self.enadao = None
+
 
     def init_era_dao(self):
         self.eradao = self.load_oracle_connection(self.config['eraUser'],
