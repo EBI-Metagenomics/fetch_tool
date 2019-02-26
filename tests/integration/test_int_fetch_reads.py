@@ -10,7 +10,9 @@ FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir
 
 
 def call_cmd(cmd):
-    ret = subprocess.call(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    print(cmd)
+    subprocess.call('fetch-read-tool -p ERP110686 -v -v'.split(' '))
+    ret = subprocess.call(cmd.split(' '), stdout=subprocess.PIPE, shell=True)
     assert ret == 0
 
 
@@ -58,6 +60,7 @@ def validate_full_study(tmpdir):
 
 
 def validate_single_study_run(tmpdir):
+    tmpdir = str(tmpdir)
     study_dir = os.path.join(tmpdir, study_id[0:7], study_id)
     assert os.path.exists(study_dir)
     study_file = os.path.join(study_dir, study_id + '.txt')
@@ -81,11 +84,8 @@ def validate_single_study_run(tmpdir):
         assert os.path.getsize(f_path) > 0
 
 
-@pytest.mark.skipIf(os.environ.get('TRAVIS'), "Skipping this test on Travis CI.")
 class TestFetchCompleteStudyReads:
     def test_fetch_all_study_data(self, tmpdir):
-        print(os.environ.get('TRAVIS'))
-
         with WorkingDir(tmpdir):
             call_cmd('fetch-read-tool -p {} -v -v'.format(study_id))
             validate_full_study(tmpdir)
