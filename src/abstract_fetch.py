@@ -11,7 +11,7 @@ from pandas.errors import EmptyDataError
 import pandas as pd
 import requests
 import urllib.request
-from subprocess import call
+from subprocess import call, STDOUT
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -50,7 +50,6 @@ class AbstractDataFetcher(ABC):
         else:
             self.eradao = None
             self.enadao = None
-
 
     def init_era_dao(self):
         self.eradao = self.load_oracle_connection(self.config['eraUser'],
@@ -400,7 +399,7 @@ class AbstractDataFetcher(ABC):
         while True:
             try:
                 logging.info("Downloading file from FTP server..." + url)
-                download_command = ["wget", "-q", "-t", "5", "-O", dest, url]
+                download_command = ["wget", "-v" if self.args.verbose else "-q", "-t", "5", "-O", dest, url]
                 retcode = call(download_command)
                 if retcode:
                     logging.error("Error downloading the file from " + url)

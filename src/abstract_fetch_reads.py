@@ -2,7 +2,7 @@ import re
 import logging
 from src.ERADAO import ERADAO
 
-from .abstract_fetch import AbstractDataFetcher
+from src.abstract_fetch import AbstractDataFetcher
 
 path_re = re.compile(r'(.*)/(.*)')
 
