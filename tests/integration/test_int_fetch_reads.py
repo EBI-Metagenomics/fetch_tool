@@ -84,8 +84,8 @@ def validate_single_study_run(tmpdir):
         assert os.path.getsize(f_path) > 0
 
 
-@pytest.mark.skipif(os.environ['TRAVIS'] == 'true', reason='Skipped as running on TravisCI')
 class TestFetchCompleteStudyReads:
+    @pytest.mark.skipif(os.environ['TRAVIS'] == 'true', reason='Skipped as running on TravisCI')
     def test_fetch_all_study_data(self, tmpdir):
         with WorkingDir(tmpdir):
             call_cmd('fetch-read-tool -p {} -v -v'.format(study_id))
@@ -96,6 +96,7 @@ class TestFetchCompleteStudyReads:
             call_cmd('fetch-read-tool -p {} -ru {}'.format(study_id, 'ERR2777789'))
             validate_single_study_run(tmpdir)
 
+    @pytest.mark.skipif(os.environ['TRAVIS'] == 'true', reason='Skipped as running on TravisCI')
     def test_fetch_sequential_runs(self, tmpdir):
         with WorkingDir(tmpdir):
             call_cmd('fetch-read-tool -p {} -ru {}'.format(study_id, 'ERR2777789'))
