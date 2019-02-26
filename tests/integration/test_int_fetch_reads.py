@@ -4,6 +4,8 @@ import subprocess
 
 import unittest
 
+import pytest
+
 FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, 'fixtures'))
 
 
@@ -79,9 +81,11 @@ def validate_single_study_run(tmpdir):
         assert os.path.getsize(f_path) > 0
 
 
-@unittest.skipIf(os.environ.get('TRAVIS'), "Skipping this test on Travis CI.")
+@pytest.mark.skipIf(os.environ.get('TRAVIS'), "Skipping this test on Travis CI.")
 class TestFetchCompleteStudyReads:
     def test_fetch_all_study_data(self, tmpdir):
+        print(os.environ.get('TRAVIS'))
+
         with WorkingDir(tmpdir):
             call_cmd('fetch-read-tool -p {} -v -v'.format(study_id))
             validate_full_study(tmpdir)
