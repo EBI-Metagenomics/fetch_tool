@@ -84,6 +84,7 @@ def validate_single_study_run(tmpdir):
         assert os.path.getsize(f_path) > 0
 
 
+@pytest.mark.skipif(os.environ['TRAVIS'] == 'true', reason='Skipped as running on TravisCI')
 class TestFetchCompleteStudyReads:
     def test_fetch_all_study_data(self, tmpdir):
         with WorkingDir(tmpdir):
