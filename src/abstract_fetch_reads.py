@@ -8,7 +8,7 @@ path_re = re.compile(r'(.*)/(.*)')
 
 
 class FetchReads(AbstractDataFetcher):
-    DEFAULT_HEADERS = ['study_id', 'sample_id', 'run_id', 'library_layout', 'file', 'file_path', 'tax_id',
+    DEFAULT_HEADERS = ['study_id', 'sample_id', 'run_id', 'library_layout', 'files', 'file_path', 'tax_id',
                        'scientific_name', 'library_strategy', 'library_source']
 
     ENA_PROJECT_URL = 'http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession={0}&result=read_run&' \
@@ -69,14 +69,12 @@ class FetchReads(AbstractDataFetcher):
             return insertable_runs
 
     def map_project_info_db_row(self, run):
-        is_submitted_file = run['DATA_FILE_ROLE'] == 'SUBMISSION_FILE'
-        run['files'] = self._get_raw_filenames(run['DATA_FILE_PATH'], run['RUN_ID'], is_submitted_file)
         return {
             'study_id': run['STUDY_ID'],
             'sample_id': run['SAMPLE_ID'],
             'run_id': run['RUN_ID'],
             'library_layout': run['LIBRARY_LAYOUT'],
-            'file': ";".join(run['files']),
+            'files': run['files'],
             'file_path': run['DATA_FILE_PATH'],
             'tax_id': run['TAX_ID'],
             'scientific_name': 'n/a',
@@ -102,11 +100,6 @@ class FetchReads(AbstractDataFetcher):
             broker = self.study_brokers[project_accession]
             logging.debug('Study {} does not have a trusted broker ({}), submitted_ftp files will be ignored'.format(
                 project_accession, broker))
-
-        # Allow force mode to bypass filtering
-        if not self.force_mode:
-            study_run_data = self._filter_runs_from_args(study_run_data, 'RUN_ID')
-            study_run_data = self._filter_runs_from_existing_downloads(project_accession, study_run_data, 'RUN_ID')
         return study_run_data
 
     @staticmethod
@@ -121,32 +114,38 @@ class FetchReads(AbstractDataFetcher):
         is_submitted_file = rundata['submitted_ftp'] is not ''
         rundata['STUDY_ID'] = rundata.pop('secondary_study_accession')
         rundata['SAMPLE_ID'] = rundata.pop('secondary_sample_accession')
+        rundata['RUN_ID'] = rundata.pop('run_accession')
         rundata['DATA_FILE_ROLE'] = 'SUBMISSION_FILE' if is_submitted_file else 'GENERATED_FILE'
-        rundata['DATA_FILE_PATH'] = rundata.get('fastq_ftp') or rundata.get('submitted_ftp')
-        rundata['MD5'] = rundata.get('fastq_md5') or rundata.get('submitted_md5')
+        file_paths = rundata.get('fastq_ftp') or rundata.get('submitted_ftp')
+        md5s = rundata.get('fastq_md5') or rundata.get('submitted_md5')
+        rundata['DATA_FILE_PATH'], rundata['files'], rundata['MD5'] = self._get_raw_filenames(file_paths,
+                                                                                              md5s,
+                                                                                              rundata['RUN_ID'],
+                                                                                              is_submitted_file)
         for key in ('fastq_ftp', 'submitted_ftp', 'fastq_md5', 'submitted_md5'):
             del rundata[key]
-        rundata['RUN_ID'] = rundata.pop('run_accession')
         rundata['TAX_ID'] = rundata.pop('tax_id')
         rundata['LIBRARY_STRATEGY'] = rundata.pop('library_strategy')
         rundata['LIBRARY_SOURCE'] = rundata.pop('library_source')
         rundata['LIBRARY_LAYOUT'] = rundata.pop('library_layout')
-        rundata['files'] = self._get_raw_filenames(rundata['DATA_FILE_PATH'], rundata['RUN_ID'], is_submitted_file)
         return rundata
+
+    def filter_by_accessions(self, project_accession, runs):
+        if not self.force_mode:
+            runs = self._filter_runs_from_args(runs, 'RUN_ID')
+            runs = self._filter_runs_from_existing_downloads(project_accession, runs,
+                                                             'RUN_ID')
+        return runs
 
     def _retrieve_project_info_ftp(self, project_accession):
         data = self._retrieve_ena_url(self.ENA_PROJECT_URL.format(project_accession))
         trusted_data = self._filter_ftp_broker_names(data)
-        insertable_runs = self._filter_runs_from_args(trusted_data, 'run_accession')
-        insertable_runs = self._filter_runs_from_existing_downloads(project_accession, insertable_runs, 'run_accession')
-        return list(map(self.map_datafields_ftp_2_db, insertable_runs))
+        return list(map(self.map_datafields_ftp_2_db, trusted_data))
 
     def write_project_files(self, project_accession, new_runs):
         new_run_rows = list(map(self.map_project_info_db_row, new_runs))
-        self.write_project_description_file(project_accession, new_run_rows)
-
+        self.write_project_description_file(project_accession, new_run_rows, 'run_id')
         self.write_project_download_file(project_accession, new_run_rows)
-
 
 def main():
     data_fetcher = FetchReads()

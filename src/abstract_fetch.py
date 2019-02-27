@@ -6,12 +6,13 @@ import logging
 import sys
 import argparse
 
+import copy
 from filelock import SoftFileLock
 from pandas.errors import EmptyDataError
 import pandas as pd
 import requests
 import urllib.request
-from subprocess import call, STDOUT
+from subprocess import call
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -138,22 +139,27 @@ class AbstractDataFetcher(ABC):
     def _retrieve_project_info_ftp(self, project_accession):
         pass
 
+    @abstractmethod
+    def filter_by_accessions(self, project_accession, data):
+        pass
+
     def fetch(self):
         for project_accession in self.projects:
             self.fetch_project(project_accession)
 
     def fetch_project(self, project_accession):
-        new_runs = self.retrieve_project(project_accession)
-        if len(new_runs) == 0 and not self.force_mode:
-            logging.warning('No new data found')
+        new_data = self.retrieve_project(project_accession)
+        new_data = self.filter_by_accessions(project_accession, new_data)
+        if len(new_data) == 0 and not self.force_mode:
+            logging.warning('No data found')
             return
-        project_accession = new_runs[0]['STUDY_ID']
+        project_accession = new_data[0]['STUDY_ID']
 
         os.makedirs(self.get_project_workdir(project_accession), exist_ok=True)
 
-        self.write_project_files(project_accession, new_runs)
+        self.write_project_files(project_accession, new_data)
 
-        self.download_raw_files(project_accession, new_runs)
+        self.download_raw_files(project_accession, new_data)
 
     def retrieve_project(self, project_accession):
         if self.private_mode:
@@ -166,9 +172,10 @@ class AbstractDataFetcher(ABC):
         raw_dir = self.get_project_rawdir(project_accession)
         os.makedirs(raw_dir, exist_ok=True)
         for run in new_runs:
-            download_sources = run['DATA_FILE_PATH'].split(';')
-            file_md5s = run['MD5'].split(';')
-            for dl_file, dl_name, dl_md5 in zip(download_sources, run['files'], file_md5s):
+            download_sources = run['DATA_FILE_PATH']
+            filenames = run['files']
+            file_md5s = run['MD5']
+            for dl_file, dl_name, dl_md5 in zip(download_sources, filenames, file_md5s):
                 dest = os.path.join(raw_dir, dl_name)
                 self.download_raw_file(dl_file, dest, dl_md5)
 
@@ -208,8 +215,8 @@ class AbstractDataFetcher(ABC):
     def write_project_download_file(self, project_accession, new_rows):
         new_download_rows = []
         for run in new_rows:
-            for file in run['file'].split(';'):
-                row = '\t'.join([run['file_path'], os.path.join('raw', os.path.basename(file))]) + '\n'
+            for file_path, file in zip(run['file_path'], run['files']):
+                row = file_path + '\t' + file + '\n'
                 new_download_rows.append(row)
 
         download_file = self.get_project_download_file(project_accession)
@@ -217,8 +224,7 @@ class AbstractDataFetcher(ABC):
             self.create_empty_file(download_file)
 
         download_file_lock = download_file + '.lock'
-        dh_lock = SoftFileLock(download_file_lock)
-        with dh_lock:
+        with SoftFileLock(download_file_lock):
             existing_rows = set(self.read_download_data(project_accession))
             existing_rows = existing_rows.union(set(new_download_rows))
             with open(download_file, 'w+') as f:
@@ -231,14 +237,22 @@ class AbstractDataFetcher(ABC):
         filepath = self.get_project_filepath(project_accession)
         return pd.read_csv(filepath, sep='\t')
 
-    def write_project_description_file(self, project_accession, new_rows):
+    @staticmethod
+    def clean_data_row(data):
+        clean_data = copy.deepcopy(data)
+        for field in ['files', 'file_path']:
+            clean_data[field] = ";".join(clean_data[field])
+        return clean_data
+
+    def write_project_description_file(self, project_accession, new_rows, sort_column):
+        project_data = list(map(self.clean_data_row, new_rows))
+
         project_file = self.get_project_filepath(project_accession)
         project_file_lock = project_file + '.lock'
         new_file = not os.path.isfile(project_file)
         if new_file:
             self.create_empty_file(project_file)
-        fh_lock = SoftFileLock(project_file_lock)
-        with fh_lock:
+        with SoftFileLock(project_file_lock):
             # Fallback in case empty file exists
             if not new_file:
                 try:
@@ -247,14 +261,14 @@ class AbstractDataFetcher(ABC):
                     new_file = True
 
             if new_file:
-                project_runs = pd.DataFrame(new_rows)
+                project_runs = pd.DataFrame(project_data)
                 headers = self.DEFAULT_HEADERS
             else:
                 headers = list(project_runs.columns.values)
-                project_runs = project_runs.append(new_rows, sort=True)
-                project_runs = project_runs.drop_duplicates(subset='run_id')
+                project_runs = project_runs.append(project_data, sort=True)
+                project_runs = project_runs.drop_duplicates(subset=sort_column)
 
-            project_runs = project_runs.fillna('n/a').sort_values(by='run_id')
+            project_runs = project_runs.fillna('n/a').sort_values(by=sort_column)
             project_runs.to_csv(project_file, sep='\t', index=False, columns=headers)
 
     def get_api_credentials(self):
@@ -293,31 +307,35 @@ class AbstractDataFetcher(ABC):
     def _is_rawdata_filetype(self, filename):
         return any(x in filename for x in ['.fa', '.fna', '.fasta', '.fq', 'fastq'])
 
-    def _filter_secondary_files(self, joined_file_names):
-        return ";".join([f for f in joined_file_names.split(';') if self._is_rawdata_filetype(f)])
+    def _filter_secondary_files(self, joined_file_names, md5s):
+        file_names = joined_file_names.split(';')
+        md5s = md5s.split(';')
+        filename_md5s = zip(file_names, md5s)
+        filtered_filename_md5s = [(f, md5) for f, md5 in filename_md5s if self._is_rawdata_filetype(f)]
+        filtered_file_names, filtered_md5s = zip(*filtered_filename_md5s)
+        return filtered_file_names, filtered_md5s
 
-    def _get_raw_filenames(self, file_names, run_id, is_submitted_file):
-        file_names = self._filter_secondary_files(file_names)
+    def _get_raw_filenames(self, filepaths, md5s, run_id, is_submitted_file):
+        filepaths, md5s = self._filter_secondary_files(filepaths, md5s)
         if is_submitted_file:
-            file_names = self._rename_raw_files(file_names, run_id)
+            file_names = self._rename_raw_files(filepaths, run_id)
         else:
-            file_names = [os.path.basename(f) for f in file_names.split(';')]
-        return file_names
+            file_names = [os.path.basename(f) for f in filepaths]
+        return filepaths, file_names, md5s
 
     @staticmethod
     def _rename_raw_files(file_names, run_id):
-        file_names = file_names.lower()
-        if any(x in file_names for x in ['.fasta', '.fna']):
+        file_names = [f.lower() for f in file_names]
+        if any(x in ";".join(file_names) for x in ['.fasta', '.fna']):
             filetype = ".fasta.gz"
         elif ".fastq" in file_names:
             filetype = ".fastq"
         else:
-            raise ValueError("Unknown sequence file format: " + file_names)
-        files = file_names.split(';')
-        if len(files) == 1:
+            raise ValueError("Unknown sequence file format: " + ",".join(file_names))
+        if len(file_names) == 1:
             return [run_id + filetype]
         else:
-            return [run_id + '_' + str(i) + filetype for i, _ in enumerate(files)]
+            return [run_id + '_' + str(i) + filetype for i, _ in enumerate(file_names)]
 
     @staticmethod
     def load_oracle_connection(user, password, host, port, instance):
