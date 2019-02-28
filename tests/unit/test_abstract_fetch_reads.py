@@ -6,7 +6,7 @@ from copy import deepcopy
 
 from unittest.mock import patch
 
-from src import abstract_fetch_reads as afr
+from src import fetch_reads as afr
 
 FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, 'fixtures'))
 
@@ -60,6 +60,7 @@ class TestFetchReads:
         assert [run_id] == afr.FetchReads._get_study_run_accessions([{'RUN_ID': run_id}])
 
     def test_filter_runs_from_existing_downloads(self):
+        # TODO
         pass
 
     def test_filter_runs_from_args_should_return_empty(self):
@@ -107,8 +108,8 @@ class TestFetchReads:
             'TAX_ID': '1231',
             'LIBRARY_SOURCE': 'METAGENOMIC',
             'LIBRARY_STRATEGY': 'WGS',
+            'files': 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz',
             'DATA_FILE_PATH': '/tmp/ERP001736/ERR599383_1.fastq.gz;/tmp/ERP001736/ERR599383_2.fastq.gz',
-            'DATA_FILE_ROLE': 'SUBMITTED',
         }
         fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
         transform = fetch.map_project_info_db_row(raw_data)
@@ -132,12 +133,13 @@ class TestFetchReads:
             'TAX_ID': '1231',
             'LIBRARY_SOURCE': 'METAGENOMIC',
             'LIBRARY_STRATEGY': 'WGS',
+            'files': 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz',
             'DATA_FILE_PATH': '/tmp/ERP001736/ERR599383_1.fastq.gz;/tmp/ERP001736/ERR599383_2.fastq.gz',
             'DATA_FILE_ROLE': 'SUBMITTED',
         }
         fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
         transform = fetch.map_project_info_db_row(raw_data)
-        assert transform['file'] == 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz'
+        assert transform['files'] == 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz'
 
     def test_is_trusted_ftp_data_should_be_trusted_from_broker(self):
         fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
@@ -164,7 +166,7 @@ class TestFetchReads:
             {'fastq_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
             {'fastq_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
         ]
-        assert 'EMG' == fetch._filter_ftp_broker_names(run_data)[0]['broker_name']
+        assert 1 == len(fetch._filter_ftp_broker_names(run_data))
 
     def test_filter_ftp_broker_names_should_allow_generated_files(self):
         fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
@@ -199,8 +201,8 @@ class TestFetchReads:
             'LIBRARY_STRATEGY': raw_data['library_strategy'],
             'LIBRARY_LAYOUT': raw_data['library_layout'],
             'DATA_FILE_ROLE': 'GENERATED_FILE',
-            'DATA_FILE_PATH': raw_data['fastq_ftp'],
-            'MD5': raw_data['fastq_md5'],
+            'DATA_FILE_PATH': ('/tmp/ERP001736/ERR599383_1.fastq.gz', '/tmp/ERP001736/ERR599383_2.fastq.gz'),
+            'MD5': ('md51', 'md52'),
             'files': ['ERR599383_1.fastq.gz', 'ERR599383_2.fastq.gz'],
         }
 
@@ -226,10 +228,11 @@ class TestFetchReads:
                  'LIBRARY_STRATEGY': 'WGS', 'LIBRARY_SOURCE': 'GENOMIC', 'DATA_FILE_ROLE': 'SUBMITTED_FILE',
                  'MD5': '899eb5ab522ebc2c98bc567f3c3ad7d8'}]
 
-    @patch('src.abstract_fetch_reads.FetchReads._retrieve_era_generated_data')
-    @patch('src.abstract_fetch_reads.FetchReads._get_studies_brokers')
-    @patch('src.abstract_fetch_reads.FetchReads._study_has_permitted_broker')
-    def test_retrieve_project_info_db_should_not_use_generated_data(self, mocked_class1, mocked_class2, mocked_class3, tmpdir):
+    @patch('src.fetch_reads.FetchReads._retrieve_era_generated_data')
+    @patch('src.fetch_reads.FetchReads._get_studies_brokers')
+    @patch('src.fetch_reads.FetchReads._study_has_permitted_broker')
+    def test_retrieve_project_info_db_should_not_use_generated_data(self, mocked_class1, mocked_class2, mocked_class3,
+                                                                    tmpdir):
         afr.FetchReads._retrieve_era_generated_data = self.mock_db_response_generated_data
         afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: False
         afr.FetchReads._get_studies_brokers = lambda *args, **kwargs: {'ERP113309': ''}
@@ -237,9 +240,9 @@ class TestFetchReads:
         runs = fetch._retrieve_project_info_db('ERP113309')
         assert len(runs) == 2
 
-    @patch('src.abstract_fetch_reads.FetchReads._retrieve_era_generated_data')
-    @patch('src.abstract_fetch_reads.FetchReads._retrieve_era_submitted_data')
-    @patch('src.abstract_fetch_reads.FetchReads._study_has_permitted_broker')
+    @patch('src.fetch_reads.FetchReads._retrieve_era_generated_data')
+    @patch('src.fetch_reads.FetchReads._retrieve_era_submitted_data')
+    @patch('src.fetch_reads.FetchReads._study_has_permitted_broker')
     def test_retrieve_project_info_db_should_add_submitted_data(self, mocked_class1, mocked_class2,
                                                                 mocked_class3, tmpdir):
         afr.FetchReads._retrieve_era_generated_data = self.mock_db_response_generated_data
@@ -250,7 +253,7 @@ class TestFetchReads:
         runs = fetch._retrieve_project_info_db('ERP113309')
         assert len(runs) == 3
 
-    @patch('src.abstract_fetch_reads.ERADAO.retrieve_study_accessions')
+    @patch('src.fetch_reads.ERADAO.retrieve_study_accessions')
     def test_process_additional_args_should_find_study_accessions_for_runs(self, mocked_class1, tmpdir):
         study_accession = 'ERP001736'
         run_id = 'ERR599083'
@@ -266,4 +269,3 @@ class TestFetchReads:
     def test_process_additional_args_should_raise_exception_if_no_private_flag(self, tmpdir):
         with pytest.raises(NotImplementedError):
             afr.FetchReads(argv=['-ru', 'ERR599083', '-d', str(tmpdir)])
-

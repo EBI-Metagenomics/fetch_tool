@@ -180,6 +180,9 @@ class AbstractDataFetcher(ABC):
                 self.download_raw_file(dl_file, dest, dl_md5)
 
     def download_raw_file(self, dl_file, dest, dl_md5):
+        """
+            Returns true if file was re-downloaded
+        """
         filename = os.path.basename(dest)
 
         if not self._is_file_valid(dest, dl_md5) or self.force_mode:
@@ -188,11 +191,13 @@ class AbstractDataFetcher(ABC):
                 self.download_dcc(dest, dl_file)
             else:
                 self.download_ftp(dest, dl_file)
+            file_downloaded = True
         else:
             logging.info('File {} already exists, skipping download'.format(filename))
-
+            file_downloaded = False
         if not self._is_file_valid(dest, dl_md5):
-            logging.error('MD5 of downloaded file {} does not match expected MD5'.format(filename))
+            raise EnvironmentError('MD5 of downloaded file {} does not match expected MD5'.format(filename))
+        return file_downloaded
 
     def get_project_workdir(self, project_accession):
         return os.path.join(self.base_dir, project_accession[0:7], project_accession)
@@ -281,7 +286,7 @@ class AbstractDataFetcher(ABC):
         return
 
     def _get_studies_brokers(self, study_accessions):
-        headers = {'Accept': 'text/plain',
+        headers = {'Accept': '*/*',
                    'Content-Type': 'application/x-www-form-urlencoded'}
         data = {
             'dataPortal': 'metagenome',
@@ -291,13 +296,13 @@ class AbstractDataFetcher(ABC):
             'format': 'json'
         }
 
-        r = requests.post(self.config['enaAPIUrl'], headers=headers, data=data,
+        r = requests.post(self.config['enaAPIUrl'] + 'search', headers=headers, data=data,
                           auth=(self.config['enaAPIUsername'], self.config['enaAPIPassword']))
-        response_str = r.text
 
         if r.status_code != 200:
             raise ValueError(r.text)
-        json_data = json.loads(response_str)
+        json_data = r.json()
+
         return {d['secondary_study_accession']: d['broker_name'] for d in json_data}
 
     def _study_has_permitted_broker(self, study_accession):
@@ -387,6 +392,14 @@ class AbstractDataFetcher(ABC):
             command.extend(['scp', '-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=3', host_path, dest])
             rv = call(command)
             if not rv:
+                if not self.prod_user:
+                    command = ["sudo", "-H", "-u", "emgpr"]
+                    command.extend(['chmod', '775', dest])
+                    rv = call(command)
+                    if not rv:
+                        return
+                    else:
+                        logging.warning('Failed to rename ' + str(dest))
                 break
             if attempt >= self.config['ssh_max_attempts']:
                 logging.error('Failed to run ' + ' '.join(command))
@@ -449,6 +462,23 @@ class AbstractDataFetcher(ABC):
                             "Too many failed attempts. Program will exit now. " +
                             "Try again to fetch the data in interactive mode (-i option)!")
                         sys.exit(1)
+
+    @staticmethod
+    def get_md5_file(filename):
+        return filename + '.md5'
+
+    def read_md5_file(self, filename):
+        with open(self.get_md5_file(filename)) as f:
+            try:
+                return f.readlines()[0]
+            except IndexError:
+                return None
+
+    def write_md5(self, filename):
+        md5_dest = self.get_md5_file(filename)
+        md5_val = md5(filename)
+        with open(md5_dest, 'w+') as f:
+            f.write(md5_val)
 
 
 def silentremove(filename):

@@ -2,7 +2,6 @@ import os
 
 import subprocess
 
-import unittest
 
 import pytest
 
@@ -10,9 +9,7 @@ FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir
 
 
 def call_cmd(cmd):
-    print(cmd)
-    subprocess.call('fetch-read-tool -p ERP110686 -v -v'.split(' '))
-    ret = subprocess.call(cmd.split(' '), stdout=subprocess.PIPE, shell=True)
+    ret = subprocess.call(cmd, stdout=subprocess.PIPE, shell=True)
     assert ret == 0
 
 
@@ -38,7 +35,7 @@ def validate_full_study(tmpdir):
     study_file = os.path.join(study_dir, study_id + '.txt')
     with open(study_file) as f:
         study_data = f.readlines()
-    assert study_data[0] == 'study_id\tsample_id\trun_id\tlibrary_layout\tfile\tfile_path\ttax_id\t' \
+    assert study_data[0] == 'study_id\tsample_id\trun_id\tlibrary_layout\tfiles\tfile_path\ttax_id\t' \
                             'scientific_name\tlibrary_strategy\tlibrary_source\n'
     assert study_data[1] == 'ERP110686\tERS2702567\tERR2777789\tSINGLE\tERR2777789.fasta.gz\t' \
                             'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz\t' \
@@ -66,7 +63,7 @@ def validate_single_study_run(tmpdir):
     study_file = os.path.join(study_dir, study_id + '.txt')
     with open(study_file) as f:
         study_data = f.readlines()
-    assert study_data[0] == 'study_id\tsample_id\trun_id\tlibrary_layout\tfile\tfile_path\ttax_id\t' \
+    assert study_data[0] == 'study_id\tsample_id\trun_id\tlibrary_layout\tfiles\tfile_path\ttax_id\t' \
                             'scientific_name\tlibrary_strategy\tlibrary_source\n'
     assert study_data[1] == 'ERP110686\tERS2702567\tERR2777789\tSINGLE\tERR2777789.fasta.gz\t' \
                             'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz\t' \
@@ -83,23 +80,21 @@ def validate_single_study_run(tmpdir):
         f_path = os.path.join(raw_dir, f)
         assert os.path.getsize(f_path) > 0
 
-
+@pytest.mark.skipif(os.environ.get('TRAVIS') == 'true', reason='Skipped as running on TravisCI')
 class TestFetchCompleteStudyReads:
-    @pytest.mark.skipif(os.environ['TRAVIS'] == 'true', reason='Skipped as running on TravisCI')
     def test_fetch_all_study_data(self, tmpdir):
         with WorkingDir(tmpdir):
-            call_cmd('fetch-read-tool -p {} -v -v'.format(study_id))
+            call_cmd('fetch-read-tool -p {} -v -v -d {}'.format(study_id, str(tmpdir)))
             validate_full_study(tmpdir)
 
     def test_fetch_single_run(self, tmpdir):
         with WorkingDir(tmpdir):
-            call_cmd('fetch-read-tool -p {} -ru {}'.format(study_id, 'ERR2777789'))
+            call_cmd('fetch-read-tool -p {} -ru {} -d {}'.format(study_id, 'ERR2777789', str(tmpdir)))
             validate_single_study_run(tmpdir)
 
-    @pytest.mark.skipif(os.environ['TRAVIS'] == 'true', reason='Skipped as running on TravisCI')
     def test_fetch_sequential_runs(self, tmpdir):
         with WorkingDir(tmpdir):
-            call_cmd('fetch-read-tool -p {} -ru {}'.format(study_id, 'ERR2777789'))
+            call_cmd('fetch-read-tool -p {} -ru {} -d {}'.format(study_id, 'ERR2777789', str(tmpdir)))
             validate_single_study_run(tmpdir)
-            call_cmd('fetch-read-tool -p {} -ru {}'.format(study_id, 'ERR2777790'))
+            call_cmd('fetch-read-tool -p {} -ru {} -d {}'.format(study_id, 'ERR2777790', str(tmpdir)))
             validate_full_study(tmpdir)
