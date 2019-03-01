@@ -19,6 +19,7 @@ class FetchReads(AbstractDataFetcher):
 
     def __init__(self, argv=None):
         self.runs = None
+        self.ACCESSION_FIELD = 'RUN_ID'
         super().__init__(argv)
 
     @staticmethod
@@ -56,12 +57,12 @@ class FetchReads(AbstractDataFetcher):
     def _get_study_run_accessions(project_data):
         return list(filter(bool, [entry['RUN_ID'] for entry in project_data]))
 
-    def _filter_runs_from_args(self, run_data, run_accession_field):
+    def _filter_accessions_from_args(self, run_data, run_accession_field):
         if self.runs:
             run_data = list(filter(lambda r: r[run_accession_field] in self.runs, run_data))
         return run_data
 
-    def _filter_runs_from_existing_downloads(self, project_accession, insertable_runs, run_accession_field):
+    def _filter_accessions_from_existing_downloads(self, project_accession, insertable_runs, run_accession_field):
         try:
             existing_runs = list(self.read_project_description_file(project_accession)['run_id'])
             return list(filter(lambda r: r[run_accession_field] not in existing_runs, insertable_runs))
@@ -130,22 +131,10 @@ class FetchReads(AbstractDataFetcher):
         rundata['LIBRARY_LAYOUT'] = rundata.pop('library_layout')
         return rundata
 
-    def filter_by_accessions(self, project_accession, runs):
-        if not self.force_mode:
-            runs = self._filter_runs_from_args(runs, 'RUN_ID')
-            runs = self._filter_runs_from_existing_downloads(project_accession, runs,
-                                                             'RUN_ID')
-        return runs
-
     def _retrieve_project_info_ftp(self, project_accession):
         data = self._retrieve_ena_url(self.ENA_PROJECT_URL.format(project_accession))
         trusted_data = self._filter_ftp_broker_names(data)
         return list(map(self.map_datafields_ftp_2_db, trusted_data))
-
-    def write_project_files(self, project_accession, new_runs):
-        new_run_rows = list(map(self.map_project_info_db_row, new_runs))
-        self.write_project_description_file(project_accession, new_run_rows, 'run_id')
-        self.write_project_download_file(project_accession, new_run_rows)
 
 
 def main():

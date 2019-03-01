@@ -10,7 +10,6 @@ FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir
 
 
 def call_cmd(cmd):
-    print(cmd)
     ret = subprocess.call(cmd, stdout=subprocess.PIPE, shell=True)
     assert ret == 0
 

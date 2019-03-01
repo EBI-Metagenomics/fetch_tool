@@ -23,6 +23,7 @@ config_file = os.getenv('FETCH_TOOL_CONFIG',
 
 class AbstractDataFetcher(ABC):
     DEFAULT_HEADERS = None
+    ACCESSION_FIELD = None
 
     def __init__(self, argv=sys.argv[1:]):
         self.args = self._parse_args(argv)
@@ -140,12 +141,23 @@ class AbstractDataFetcher(ABC):
         pass
 
     @abstractmethod
-    def filter_by_accessions(self, project_accession, data):
+    def _filter_accessions_from_args(self, data, fieldname):
+        pass
+
+    @abstractmethod
+    def _filter_accessions_from_existing_downloads(self, project_accession, data, fieldname):
         pass
 
     def fetch(self):
         for project_accession in self.projects:
             self.fetch_project(project_accession)
+
+    def filter_by_accessions(self, project_accession, new_data):
+        if not self.force_mode:
+            new_data = self._filter_accessions_from_args(new_data, self.ACCESSION_FIELD)
+            new_data = self._filter_accessions_from_existing_downloads(project_accession, new_data,
+                                                                       self.ACCESSION_FIELD)
+        return new_data
 
     def fetch_project(self, project_accession):
         new_data = self.retrieve_project(project_accession)
@@ -479,6 +491,15 @@ class AbstractDataFetcher(ABC):
         md5_val = md5(filename)
         with open(md5_dest, 'w+') as f:
             f.write(md5_val)
+
+    @abstractmethod
+    def map_project_info_db_row(self, data):
+        pass
+
+    def write_project_files(self, project_accession, new_runs):
+        new_run_rows = list(map(self.map_project_info_db_row, new_runs))
+        self.write_project_description_file(project_accession, new_run_rows, self.ACCESSION_FIELD.lower())
+        self.write_project_download_file(project_accession, new_run_rows)
 
 
 def silentremove(filename):

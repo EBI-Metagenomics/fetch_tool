@@ -57,12 +57,12 @@ class TestFetchAssemblies:
         assembly_id = 'ERZ477685'
         assert [assembly_id] == afa.FetchAssemblies._get_study_assembly_accessions([{'ANALYSIS_ID': assembly_id}])
 
-    def test_filter_assemblies_from_args_should_return_empty(self):
+    def test_filter_accessions_from_args_should_return_empty(self):
         fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
         fetch.assemblies = 'ERZ477685'
-        assert [] == fetch._filter_assemblies_from_args([], 'analysis_id')
+        assert [] == fetch._filter_accessions_from_args([], 'analysis_id')
 
-    def test_filter_assemblies_from_args_should_return_filtered_assemblies(self):
+    def test_filter_accessions_from_args_should_return_filtered_assemblies(self):
         fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
         assemblies = ['ERZ477685', 'ERZ477686']
         fetch.assemblies = assemblies
@@ -71,9 +71,9 @@ class TestFetchAssemblies:
             {'analysis_id': 'ERZ477686'},
             {'analysis_id': 'ERZ477687'},
         ]
-        assert run_data[0:2] == fetch._filter_assemblies_from_args(run_data, 'analysis_id')
+        assert run_data[0:2] == fetch._filter_accessions_from_args(run_data, 'analysis_id')
 
-    def test_filter_assemblies_from_existing_downloads_should_not_filter_as_no_file_present(self, tmpdir):
+    def test_filter_accessions_from_existing_downloads_should_not_filter_as_no_file_present(self, tmpdir):
         fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225', '-d', str(tmpdir)])
         # Assert description file does not exist
         with pytest.raises(FileNotFoundError):
@@ -83,16 +83,16 @@ class TestFetchAssemblies:
             {'analysis_id': 'ERZ477686'},
             {'analysis_id': 'ERZ477687'},
         ]
-        assert run_data == fetch._filter_assemblies_from_existing_downloads('ERP104225', run_data, 'ERR599083')
+        assert run_data == fetch._filter_accessions_from_existing_downloads('ERP104225', run_data, 'ERR599083')
 
-    def test_filter_assemblies_from_existing_downloads_should_filter_using_description_file(self, tmpdir):
+    def test_filter_accessions_from_existing_downloads_should_filter_using_description_file(self, tmpdir):
         study_id = 'ERP104225'
         tmpdir = str(tmpdir)
         project_dir = os.path.join(FIXTURES_DIR, study_id[0:7])
         shutil.copytree(project_dir, tmpdir + '/' + study_id[0:7])
         fetch = afa.FetchAssemblies(argv=['-p', study_id, '-d', tmpdir])
         new_assemblies = [{'analysis_id': 'ERZ477685'}]
-        assert new_assemblies == fetch._filter_assemblies_from_existing_downloads(study_id, new_assemblies,
+        assert new_assemblies == fetch._filter_accessions_from_existing_downloads(study_id, new_assemblies,
                                                                                   'analysis_id')
 
     def test_filter_assembly_accessions_should_return_empty(self):
@@ -221,7 +221,7 @@ class TestFetchAssemblies:
     @patch('src.fetch_assemblies.FetchAssemblies._get_studies_brokers')
     @patch('src.fetch_assemblies.FetchAssemblies._study_has_permitted_broker')
     def test_retrieve_project_info_db_should_merge_data_sources(self, mocked_class1, mocked_class2, mocked_class3,
-                                                                    tmpdir):
+                                                                    mocked_class_4, tmpdir):
         afa.FetchAssemblies._get_assembly_metadata = self.mock_get_assembly_metadata
         afa.FetchAssemblies._get_study_wgs_analyses = self.mock_get_study_wgs_analyses
         afa.FetchAssemblies._study_has_permitted_broker = lambda *args, **kwargs: False

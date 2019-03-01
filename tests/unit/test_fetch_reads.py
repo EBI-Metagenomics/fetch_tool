@@ -1,12 +1,14 @@
+import json
 import os
 import pytest
 import shutil
+import sys
 
 from copy import deepcopy
 
 from unittest.mock import patch
 
-from src import fetch_reads as afr
+from src import fetch_reads as afr, abstract_fetch
 
 FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, 'fixtures'))
 
@@ -59,16 +61,29 @@ class TestFetchReads:
         run_id = 'ERR599830'
         assert [run_id] == afr.FetchReads._get_study_run_accessions([{'RUN_ID': run_id}])
 
-    def test_filter_runs_from_existing_downloads(self):
-        # TODO
-        pass
-
-    def test_filter_runs_from_args_should_return_empty(self):
+    def test_filter_by_accessions_should_return_empty(self):
         fetch = afr.FetchReads(argv=['-p', 'ERP001736'])
         fetch.runs = 'ERR599830'
-        assert [] == fetch._filter_runs_from_args([], 'run_id')
+        assert [] == fetch.filter_by_accessions('ERP001736', [])
 
-    def test_filter_runs_from_args_should_return_filtered_runs(self):
+    def test_filter_by_accessions_should_skip_with_force(self):
+        fetch = afr.FetchReads(argv=['-p', 'ERP001736', '-f'])
+        run_accession = 'ERR599830'
+        run_data = [{'run_id': run_accession}]
+        assert run_data == fetch.filter_by_accessions('ERP001736', run_data)
+
+    def test_filter_by_accessions_should_not_filter_new_run(self):
+        fetch = afr.FetchReads(argv=['-p', 'ERP001736'])
+        fetch.runs = ['ERR599830', 'ERR599831']
+        run_data = [{'RUN_ID': 'ERR599831'}]
+        assert run_data == fetch.filter_by_accessions('ERP001736', run_data)
+
+    def test_filter_accessions_from_args_should_return_empty(self):
+        fetch = afr.FetchReads(argv=['-p', 'ERP001736'])
+        fetch.runs = 'ERR599830'
+        assert [] == fetch._filter_accessions_from_args([], 'run_id')
+
+    def test_filter_accessions_from_args_should_return_filtered_runs(self):
         fetch = afr.FetchReads(argv=['-p', 'ERP001736'])
         runs = ['ERR599830', 'ERR599831']
         fetch.runs = runs
@@ -77,9 +92,9 @@ class TestFetchReads:
             {'run_id': 'ERR599831'},
             {'run_id': 'ERR599832'},
         ]
-        assert run_data[0:2] == fetch._filter_runs_from_args(run_data, 'run_id')
+        assert run_data[0:2] == fetch._filter_accessions_from_args(run_data, 'run_id')
 
-    def test_filter_runs_from_existing_downloads_should_not_filter_as_no_file_present(self):
+    def test_filter_accessions_from_existing_downloads_should_not_filter_as_no_file_present(self):
         fetch = afr.FetchReads(argv=['-p', 'ERP001736'])
         # Assert description file does not exist
         with pytest.raises(FileNotFoundError):
@@ -89,15 +104,15 @@ class TestFetchReads:
             {'run_id': 'ERR599831'},
             {'run_id': 'ERR599832'},
         ]
-        assert run_data == fetch._filter_runs_from_existing_downloads('ERP001736', run_data, 'ERR599083')
+        assert run_data == fetch._filter_accessions_from_existing_downloads('ERP001736', run_data, 'ERR599083')
 
-    def test_filter_runs_from_existing_downloads_should_filter_using_description_file(self, tmpdir):
+    def test_filter_accessions_from_existing_downloads_should_filter_using_description_file(self, tmpdir):
         tmpdir = str(tmpdir)
         project_dir = os.path.join(FIXTURES_DIR, 'ERP0036')
         shutil.copytree(project_dir, tmpdir + '/ERP0036')
         fetch = afr.FetchReads(argv=['-p', 'ERP003634', '-d', tmpdir])
         new_runs = [{'run_id': 'ERR315856'}]
-        assert new_runs == fetch._filter_runs_from_existing_downloads('ERP003634', new_runs, 'run_id')
+        assert new_runs == fetch._filter_accessions_from_existing_downloads('ERP003634', new_runs, 'run_id')
 
     def test_map_project_info_db_row_should_copy_fields(self):
         raw_data = {
@@ -269,3 +284,38 @@ class TestFetchReads:
     def test_process_additional_args_should_raise_exception_if_no_private_flag(self, tmpdir):
         with pytest.raises(NotImplementedError):
             afr.FetchReads(argv=['-ru', 'ERR599083', '-d', str(tmpdir)])
+
+    def test_write_project_files_should_create_both_files(self, tmpdir):
+        tmpdir = str(tmpdir)
+        study_accession = 'ERP110686'
+        project_dir = os.path.join(tmpdir, study_accession[0:7], study_accession)
+        os.makedirs(project_dir)
+        run_data = [
+            {'study_accession': 'PRJEB28479', 'sample_accession': 'SAMEA4883561', 'experiment_accession': 'ERX2789866',
+             'scientific_name': 'metagenome', 'instrument_model': 'unspecified', 'broker_name': 'MGRAST',
+             'STUDY_ID': 'ERP110686', 'SAMPLE_ID': 'ERS2702567', 'RUN_ID': 'ERR2777789',
+             'DATA_FILE_ROLE': 'SUBMISSION_FILE',
+             'DATA_FILE_PATH': ('ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz',),
+             'files': ['ERR2777789.fasta.gz'], 'MD5': ('7935d13d964cc6bc5038f7706ec3e1c4',), 'TAX_ID': '256318',
+             'LIBRARY_STRATEGY': 'AMPLICON', 'LIBRARY_SOURCE': 'METAGENOMIC', 'LIBRARY_LAYOUT': 'SINGLE'}]
+        fetch = afr.FetchReads(argv=['-p', study_accession, '-ru', 'ERR2777789', '-d', tmpdir])
+        fetch.write_project_files(study_accession, run_data)
+        project_desc_file = os.path.join(project_dir, study_accession + '.txt')
+        with open(project_desc_file) as f:
+            data = f.readlines()
+        assert len(data) == 2
+        assert data[0] == '\t'.join(afr.FetchReads.DEFAULT_HEADERS) + '\n'
+        assert data[1] == 'ERP110686	ERS2702567	ERR2777789	SINGLE	ERR2777789.fasta.gz	' \
+                          'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz	' \
+                          '256318	n/a	AMPLICON	METAGENOMIC\n'
+        download_file = os.path.join(project_dir, 'download')
+        with open(download_file) as f:
+            download_data = f.readlines()
+        assert len(download_data) == 1
+
+    @patch.object(afr.FetchReads, 'fetch')
+    def test_main_should_call_fetch(self, mock):
+        test_args = ['scriptname', '-p', 'ERP001736']
+        with patch.object(sys, 'argv', test_args):
+            afr.main()
+        assert mock.called

@@ -1,7 +1,5 @@
 import re
 import logging
-import shutil
-import sys
 import os
 import requests
 import gzip
@@ -20,6 +18,7 @@ class FetchAssemblies(AbstractDataFetcher):
     ENA_PROJECT_URL = 'http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession={0}&result=analysis&fields=analysis_accession,study_accession,secondary_study_accession,sample_accession,secondary_sample_accession,analysis_title,analysis_type,center_name,first_public,last_updated,study_title,analysis_alias,study_alias,submitted_md5,submitted_ftp,sample_alias,broker_name,sample_title&download=txt'
 
     def __init__(self, argv=None):
+        self.ACCESSION_FIELD = 'ANALYSIS_ID'
         self.assemblies = None
         super().__init__(argv)
         self.init_era_dao()
@@ -61,7 +60,7 @@ class FetchAssemblies(AbstractDataFetcher):
     def _get_study_assembly_accessions(project_data):
         return list(filter(bool, [entry['ANALYSIS_ID'] for entry in project_data]))
 
-    def _filter_assemblies_from_args(self, assembly_data, assembly_accession_field):
+    def _filter_accessions_from_args(self, assembly_data, assembly_accession_field):
         if self.assemblies:
             assembly_data = list(filter(lambda r: r[assembly_accession_field] in self.assemblies, assembly_data))
         return assembly_data
@@ -70,7 +69,7 @@ class FetchAssemblies(AbstractDataFetcher):
     def _filter_assembly_accessions(assembly_accessions, existing_assembly_accessions):
         return list(filter(lambda r: r not in existing_assembly_accessions, assembly_accessions))
 
-    def _filter_assemblies_from_existing_downloads(self, project_accession, insertable_assemblies,
+    def _filter_accessions_from_existing_downloads(self, project_accession, insertable_assemblies,
                                                    assembly_accession_field):
         try:
             existing_assemblies = list(self.read_project_description_file(project_accession)['analysis_id'])
@@ -152,26 +151,10 @@ class FetchAssemblies(AbstractDataFetcher):
             is_submitted_file)
         return assemblydata
 
-    def filter_by_accessions(self, project_accession, data):
-        if not self.force_mode:
-            print(data)
-            data = self._filter_assemblies_from_args(data, 'ANALYSIS_ID')
-            print(data)
-            data = self._filter_assemblies_from_existing_downloads(project_accession, data, 'ANALYSIS_ID')
-            print(data)
-
-        return data
-
     def _retrieve_project_info_ftp(self, project_accession):
         data = self._retrieve_ena_url(self.ENA_PROJECT_URL.format(project_accession))
         insertable_assemblies = self._filter_ftp_broker_names(data)
         return list(map(self.map_datafields_ftp_2_db, insertable_assemblies))
-
-    def write_project_files(self, project_accession, new_assemblies):
-        new_assembly_rows = list(map(self.map_project_info_db_row, new_assemblies))
-        self.write_project_description_file(project_accession, new_assembly_rows, 'analysis_id')
-
-        self.write_project_download_file(project_accession, new_assembly_rows)
 
     project_webin_accounts = {}
 
@@ -230,7 +213,7 @@ class FetchAssemblies(AbstractDataFetcher):
                 dest = os.path.join(raw_dir, dl_name)
                 dir, basename = os.path.split(dest)
                 name, ext = os.path.splitext(basename)
-                unmapped_dest = os.path.join(dir, name+'_unmapped.' + ext)
+                unmapped_dest = os.path.join(dir, name + '_unmapped.' + ext)
                 was_downloaded = self.download_raw_file(dl_file, unmapped_dest, dl_md5)
 
                 mapped_md5 = self.get_md5_file(dl_file)
@@ -267,57 +250,12 @@ class FetchAssemblies(AbstractDataFetcher):
     @staticmethod
     def parse_wgs_seq_acc_range(line):
         """
-            This method parses the following line:
-            scaffolds:FWWM01000001-FWWM01391746
-            <assembly-type>:<wgs seq set acc><number>-<wgs seq set acc><number>
-
-            This method parses the WGS sequence set accession, FWWM01 and
-            the ordinal number range, 000001-391746
-
-            The line we have to parse is retrieved from an API call.
-            The API is maintained by the ENA. Further down below you will find
-            an example call and an example response:
-
-            Example call:
-            curl -X GET "https://www.ebi.ac.uk/ena/submit/report/analysis-process/ERZ404940?format=json&max-results=100" -H  "accept: */*" -H  "authorization: Basic V2ViaW4tNDI5NzA6M25AIUAyLTEyOA=="
-
-            Example response body (05/10/2018):
-            [
-              {
-                "report": {
-                  "id": "ERZ404940",
-                  "analysisType": "SEQUENCE_ASSEMBLY",
-                  "acc": "scaffolds:FWWM01000001-FWWM01391746",
-                  "processingStatus": "COMPLETED",
-                  "processingError": null
-                },
-                "links": []
-              }
-            ]
-        :param amount:
+            Parses a line in format scaffolds:FWWM01000001-FWWM01391746
+            in format <assembly-type>:<wgs seq set acc><number>-<wgs seq set acc><number>
+        :param line:
         :return:
         """
-        wgs_seq_set_acc, start, end = None, None, None
-        if not line:
-            logging.warning("Value for line is undefined!")
-            return None, None, None
-        warn_msg = "Unexpected format of line: {0}".format(line)
-        # Split case like  contigs:ODOD01000001-ODOD01010452,contigs(set):ODOD01,genome:GCA_900206415.1
-        first_split = line.split(',')[0]
-        # Split scaffolds:FWPU01000001-FWPU01204773
-        second_split = first_split.split(':')
-        if len(second_split) == 2:
-            # Split FWPU01000001-FWPU01204773
-            third_split = second_split[1].split('-')
-            if len(third_split) == 2:
-                start = third_split[0][6:]
-                end = third_split[1][6:]
-                # wgs seq set acc
-                wgs_seq_set_acc = third_split[0][:6]
-            else:
-                logging.warning(warn_msg)
-        else:
-            logging.warning(warn_msg)
+        wgs_seq_set_acc, start, end = re.findall(r'.+:(.{6})(\d+)-\1(\d+)', line)[0]
         return wgs_seq_set_acc, int(start), int(end)
 
     def rename_fasta_headers(self, unmapped_fasta_file, fasta_file, project_accession, analysis_id):
