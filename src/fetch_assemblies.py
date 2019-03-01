@@ -53,7 +53,7 @@ class FetchAssemblies(AbstractDataFetcher):
     def _get_project_accessions_from_assemblies(self, assemblies):
         self.init_era_dao()
         # Get all generated study data from ENA
-        study_records = ERADAO(self.eradao).retrieve_study_accessions(assemblies)
+        study_records = ERADAO(self.eradao).retrieve_study_accessions_from_analyses(assemblies)
         return [s['STUDY_ID'] for s in study_records]
 
     @staticmethod
@@ -78,6 +78,7 @@ class FetchAssemblies(AbstractDataFetcher):
             return insertable_assemblies
 
     def map_project_info_db_row(self, assembly):
+        print(assembly)
         return {
             'study_id': assembly['STUDY_ID'],
             'sample_id': assembly['SAMPLE_ID'],
@@ -102,7 +103,7 @@ class FetchAssemblies(AbstractDataFetcher):
         wgs_analyses = self._get_study_wgs_analyses(project_acc)
 
         study_analyses = self._combine_analyses(metadata_analyses, wgs_analyses)
-
+        print(study_analyses)
         # Allow force mode to bypass filtering
         return study_analyses
 

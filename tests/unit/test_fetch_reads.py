@@ -268,11 +268,11 @@ class TestFetchReads:
         runs = fetch._retrieve_project_info_db('ERP113309')
         assert len(runs) == 3
 
-    @patch('src.fetch_reads.ERADAO.retrieve_study_accessions')
+    @patch('src.fetch_reads.ERADAO.retrieve_study_accessions_from_runs')
     def test_process_additional_args_should_find_study_accessions_for_runs(self, mocked_class1, tmpdir):
         study_accession = 'ERP001736'
         run_id = 'ERR599083'
-        afr.ERADAO.retrieve_study_accessions = lambda *args, **kwargs: [{'STUDY_ID': study_accession}]
+        afr.ERADAO.retrieve_study_accessions_from_runs = lambda *args, **kwargs: [{'STUDY_ID': study_accession}]
         afr.FetchReads._retrieve_era_generated_data = self.mock_db_response_generated_data
         afr.FetchReads._retrieve_era_submitted_data = self.mock_db_response_submitted_data
         afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: True

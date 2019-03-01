@@ -230,17 +230,19 @@ class TestFetchAssemblies:
         assemblies = fetch._retrieve_project_info_db('ERP003634')
         assert len(assemblies) == 2
 
-    @patch('src.fetch_assemblies.ERADAO.retrieve_study_accessions')
+    @patch('src.fetch_assemblies.ERADAO.retrieve_study_accessions_from_analyses')
     @patch('src.fetch_assemblies.FetchAssemblies._get_assembly_metadata')
     @patch('src.fetch_assemblies.FetchAssemblies._get_study_wgs_analyses')
+    @patch('src.fetch_assemblies.FetchAssemblies._get_studies_brokers')
     def test_process_additional_args_should_find_study_accessions_for_assemblies(self, mocked_class1, mocked_class2,
-                                                                                 mocked_class3, tmpdir):
+                                                                                 mocked_class3, mocked_class4, tmpdir):
         study_accession = 'ERP104225'
         analysis_id = 'ERZ477684'
-        afa.ERADAO.retrieve_study_accessions = lambda *args, **kwargs: [{'STUDY_ID': study_accession}]
+        afa.ERADAO.retrieve_study_accessions_from_analyses = lambda *args, **kwargs: [{'STUDY_ID': study_accession}]
         afa.FetchAssemblies._get_assembly_metadata = self.mock_get_assembly_metadata
         afa.FetchAssemblies._get_study_wgs_analyses = self.mock_get_study_wgs_analyses
         afa.FetchAssemblies._study_has_permitted_broker = lambda *args, **kwargs: True
+        afa.FetchAssemblies._get_studies_brokers = lambda *args, **kwargs: {'ERP003634': ''}
         fetch = afa.FetchAssemblies(argv=['-as', analysis_id, '-d', str(tmpdir), '--private'])
         fetch._process_additional_args()
         assert fetch.assemblies == [analysis_id]

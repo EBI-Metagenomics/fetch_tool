@@ -50,7 +50,7 @@ class FetchReads(AbstractDataFetcher):
     def _get_project_accessions_from_runs(self, runs):
         self.init_era_dao()
         # Get all generated study data from ENA
-        study_records = ERADAO(self.eradao).retrieve_study_accessions(runs)
+        study_records = ERADAO(self.eradao).retrieve_study_accessions_from_runs(runs)
         return [s['STUDY_ID'] for s in study_records]
 
     @staticmethod

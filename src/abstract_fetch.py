@@ -129,10 +129,6 @@ class AbstractDataFetcher(ABC):
         os.makedirs(dirname, exist_ok=True)
 
     @abstractmethod
-    def write_project_files(self, project_accession, new_runs):
-        pass
-
-    @abstractmethod
     def _retrieve_project_info_db(self, project_accession):
         pass
 
