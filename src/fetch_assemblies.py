@@ -231,7 +231,7 @@ class FetchAssemblies(AbstractDataFetcher):
 
         webin = self._retrieve_webin_account_id(project_accession)
 
-        url = f'https://www.ebi.ac.uk/ena/submit/report/analysis-process/{analysis_id}/'
+        url = 'https://www.ebi.ac.uk/ena/submit/report/analysis-process/{}/'.format(analysis_id)
         payload = {"format": "json"}
         headers = {"Accept": "*/*"}
         creds = (webin, self.config['enaMasterPassword'])
@@ -271,9 +271,13 @@ class FetchAssemblies(AbstractDataFetcher):
                     if line.startswith('>'):
                         contig_name = line[1:]
                         contig_number = (first_contig_number + counter)
-                        contig_number = f'{contig_number:08}'
-                        line = f'>ENA|{wgs_seq_set_acc}{contig_number}|{wgs_seq_set_acc}{contig_number}.1 ' \
-                               f'{scientific_name} genome assembly, contig: {contig_name}'
+                        contig_number = '{:08}'.format(contig_number)
+                        line = '>ENA|{wgs_seq_set_acc}{contig_number}|{wgs_seq_set_acc}{contig_number}.1 ' \
+                               '{scientific_name} genome assembly, ' \
+                               'contig: {contig_name}'.format(wgs_seq_set_acc=wgs_seq_set_acc,
+                                                              contig_number=contig_number,
+                                                              scientific_name=scientific_name,
+                                                              contig_name=contig_name)
                         counter += 1
                     new_f.write(line)
         logging.debug('Finished re-mapping fasta file')
