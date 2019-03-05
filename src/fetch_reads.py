@@ -538,7 +538,14 @@ class ENADataFetcher(object):
                                 attempt % n_hosts] + ":{}".format(path), fn])
             rv = call(command)
             if not rv:
-                return
+                if not prod_user:
+                    command = ["sudo", "-H", "-u", "emgpr"]
+                    command.extend(['chmod', '775', fn])
+                    rv = call(command)
+                    if not rv:
+                        return
+                    else:
+                        logging.warning('Failed to rename ' + str(fn))
             if attempt >= self.ssh_max_attempts:
                 logging.error('Failed to run ' + ' '.join(command))
                 if interactive:
