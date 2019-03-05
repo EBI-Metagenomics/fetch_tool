@@ -31,7 +31,7 @@ study_id = 'ERP110686'
 
 
 def validate_full_study(tmpdir):
-    study_dir = os.path.join(tmpdir, study_id[0:7], study_id)
+    study_dir = os.path.join(tmpdir, study_id)
     assert os.path.exists(study_dir)
     study_file = os.path.join(study_dir, study_id + '.txt')
     with open(study_file) as f:
@@ -59,7 +59,7 @@ def validate_full_study(tmpdir):
 
 def validate_single_study_run(tmpdir):
     tmpdir = str(tmpdir)
-    study_dir = os.path.join(tmpdir, study_id[0:7], study_id)
+    study_dir = os.path.join(tmpdir, study_id)
     assert os.path.exists(study_dir)
     study_file = os.path.join(study_dir, study_id + '.txt')
     with open(study_file) as f:

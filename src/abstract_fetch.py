@@ -208,10 +208,10 @@ class AbstractDataFetcher(ABC):
         return file_downloaded
 
     def get_project_workdir(self, project_accession):
-        return os.path.join(self.base_dir, project_accession[0:7], project_accession)
+        return os.path.join(self.base_dir, project_accession)
 
     def get_project_rawdir(self, project_accession):
-        return os.path.join(self.base_dir, project_accession[0:7], project_accession, 'raw')
+        return os.path.join(self.base_dir, project_accession, 'raw')
 
     def get_project_download_file(self, project_accession):
         return os.path.join(self.get_project_workdir(project_accession), 'download')
@@ -341,14 +341,14 @@ class AbstractDataFetcher(ABC):
         file_names = [f.lower() for f in file_names]
         if any(x in ";".join(file_names) for x in ['.fasta', '.fna']):
             filetype = ".fasta.gz"
-        elif ".fastq" in file_names:
+        elif any([".fastq" in fn for fn in file_names]):
             filetype = ".fastq"
         else:
             raise ValueError("Unknown sequence file format: " + ",".join(file_names))
         if len(file_names) == 1:
             return [run_id + filetype]
         else:
-            return [run_id + '_' + str(i) + filetype for i, _ in enumerate(file_names)]
+            return [run_id + '_' + str(i+1) + filetype for i, _ in enumerate(file_names)]
 
     @staticmethod
     def load_oracle_connection(user, password, host, port, instance):

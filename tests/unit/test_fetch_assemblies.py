@@ -88,8 +88,8 @@ class TestFetchAssemblies:
     def test_filter_accessions_from_existing_downloads_should_filter_using_description_file(self, tmpdir):
         study_id = 'ERP104225'
         tmpdir = str(tmpdir)
-        project_dir = os.path.join(FIXTURES_DIR, study_id[0:7])
-        shutil.copytree(project_dir, tmpdir + '/' + study_id[0:7])
+        project_dir = os.path.join(FIXTURES_DIR, study_id)
+        shutil.copytree(project_dir, tmpdir + '/' + study_id)
         fetch = afa.FetchAssemblies(argv=['-p', study_id, '-d', tmpdir])
         new_assemblies = [{'analysis_id': 'ERZ477685'}]
         assert new_assemblies == fetch._filter_accessions_from_existing_downloads(study_id, new_assemblies,

@@ -103,7 +103,6 @@ class FetchAssemblies(AbstractDataFetcher):
         wgs_analyses = self._get_study_wgs_analyses(project_acc)
 
         study_analyses = self._combine_analyses(metadata_analyses, wgs_analyses)
-        print(study_analyses)
         # Allow force mode to bypass filtering
         return study_analyses
 

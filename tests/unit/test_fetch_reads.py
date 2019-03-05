@@ -108,8 +108,8 @@ class TestFetchReads:
 
     def test_filter_accessions_from_existing_downloads_should_filter_using_description_file(self, tmpdir):
         tmpdir = str(tmpdir)
-        project_dir = os.path.join(FIXTURES_DIR, 'ERP0036')
-        shutil.copytree(project_dir, tmpdir + '/ERP0036')
+        project_dir = os.path.join(FIXTURES_DIR, 'ERP003634')
+        shutil.copytree(project_dir, tmpdir + '/ERP003634')
         fetch = afr.FetchReads(argv=['-p', 'ERP003634', '-d', tmpdir])
         new_runs = [{'run_id': 'ERR315856'}]
         assert new_runs == fetch._filter_accessions_from_existing_downloads('ERP003634', new_runs, 'run_id')
@@ -288,7 +288,7 @@ class TestFetchReads:
     def test_write_project_files_should_create_both_files(self, tmpdir):
         tmpdir = str(tmpdir)
         study_accession = 'ERP110686'
-        project_dir = os.path.join(tmpdir, study_accession[0:7], study_accession)
+        project_dir = os.path.join(tmpdir, study_accession)
         os.makedirs(project_dir)
         run_data = [
             {'study_accession': 'PRJEB28479', 'sample_accession': 'SAMEA4883561', 'experiment_accession': 'ERX2789866',
