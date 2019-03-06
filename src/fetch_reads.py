@@ -70,6 +70,7 @@ class FetchReads(AbstractDataFetcher):
             return insertable_runs
 
     def map_project_info_db_row(self, run):
+        print(run)
         return {
             'study_id': run['STUDY_ID'],
             'sample_id': run['SAMPLE_ID'],
@@ -101,6 +102,12 @@ class FetchReads(AbstractDataFetcher):
             broker = self.study_brokers[project_accession]
             logging.debug('Study {} does not have a trusted broker ({}), submitted_ftp files will be ignored'.format(
                 project_accession, broker))
+        for data in study_run_data:
+            is_submitted_file = data['DATA_FILE_ROLE'] == 'SUBMITTED_FILE'
+            data['DATA_FILE_PATH'], data['files'], data['MD5'] = self._get_raw_filenames(data['DATA_FILE_PATH'],
+                                                                                         data['MD5'],
+                                                                                         data['RUN_ID'],
+                                                                                         is_submitted_file)
         return study_run_data
 
     @staticmethod
