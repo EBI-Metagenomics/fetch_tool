@@ -78,7 +78,6 @@ class FetchAssemblies(AbstractDataFetcher):
             return insertable_assemblies
 
     def map_project_info_db_row(self, assembly):
-        print(assembly)
         return {
             'study_id': assembly['STUDY_ID'],
             'sample_id': assembly['SAMPLE_ID'],
@@ -104,6 +103,12 @@ class FetchAssemblies(AbstractDataFetcher):
 
         study_analyses = self._combine_analyses(metadata_analyses, wgs_analyses)
         # Allow force mode to bypass filtering
+        for data in study_analyses:
+            data['DATA_FILE_PATH'], data['files'], data['MD5'] = self._get_raw_filenames(
+                data['DATA_FILE_PATH'],
+                data['MD5'],
+                data['ANALYSIS_ID'],
+                True)
         return study_analyses
 
     @staticmethod
@@ -145,8 +150,7 @@ class FetchAssemblies(AbstractDataFetcher):
         assemblydata['ANALYSIS_ID'] = assemblydata.pop('analysis_accession')
         assemblydata['DATA_FILE_PATH'], assemblydata['files'], assemblydata['MD5'] = self._get_raw_filenames(
             assemblydata['DATA_FILE_PATH'],
-            assemblydata.pop(
-                'submitted_md5'),
+            assemblydata.pop('submitted_md5'),
             assemblydata['ANALYSIS_ID'],
             is_submitted_file)
         return assemblydata

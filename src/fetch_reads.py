@@ -70,7 +70,6 @@ class FetchReads(AbstractDataFetcher):
             return insertable_runs
 
     def map_project_info_db_row(self, run):
-        print(run)
         return {
             'study_id': run['STUDY_ID'],
             'sample_id': run['SAMPLE_ID'],

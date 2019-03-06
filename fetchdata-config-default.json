@@ -19,7 +19,7 @@
   "trustedBrokers": [
     "MGRAST", "EBI-EMG", "EMBL-EBI", ""
   ],
-  "enaAPIUrl": "https://www.ebi.ac.uk/ena/portal/api/search",
+  "enaAPIUrl": "https://www.ebi.ac.uk/ena/portal/api/",
   "enaAPIUsername": "",
   "enaAPIPassword": "",
   "enaMasterPassword": "",

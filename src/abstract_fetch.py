@@ -339,7 +339,7 @@ class AbstractDataFetcher(ABC):
     @staticmethod
     def _rename_raw_files(file_names, run_id):
         file_names = [f.lower() for f in file_names]
-        if any(x in ";".join(file_names) for x in ['.fasta', '.fna']):
+        if any(x in ";".join(file_names) for x in ['.fasta', '.fna', '.fa']):
             filetype = ".fasta.gz"
         elif any([".fastq" in fn for fn in file_names]):
             filetype = ".fastq"
