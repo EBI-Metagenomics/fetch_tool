@@ -159,7 +159,7 @@ class AbstractDataFetcher(ABC):
         new_data = self.retrieve_project(project_accession)
         new_data = self.filter_by_accessions(project_accession, new_data)
         if len(new_data) == 0 and not self.force_mode:
-            logging.warning('No data found')
+            logging.warning('No new data found')
             return
         project_accession = new_data[0]['STUDY_ID']
 
@@ -249,6 +249,11 @@ class AbstractDataFetcher(ABC):
     def read_project_description_file(self, project_accession):
         filepath = self.get_project_filepath(project_accession)
         return pd.read_csv(filepath, sep='\t')
+
+    @staticmethod
+    def check_files_downloaded(raw_dir, filenames):
+        filepaths = [os.path.join(raw_dir, f) for f in filenames.split(';')]
+        return all(list(map(os.path.isfile, filepaths)))
 
     @staticmethod
     def clean_data_row(data):

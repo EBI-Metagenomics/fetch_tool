@@ -72,10 +72,14 @@ class FetchAssemblies(AbstractDataFetcher):
     def _filter_accessions_from_existing_downloads(self, project_accession, insertable_assemblies,
                                                    assembly_accession_field):
         try:
-            existing_assemblies = list(self.read_project_description_file(project_accession)['analysis_id'])
-            return list(filter(lambda r: r[assembly_accession_field] not in existing_assemblies, insertable_assemblies))
+            existing_runs = self.read_project_description_file(project_accession).to_dict('records')
         except FileNotFoundError:
             return insertable_assemblies
+
+        raw_dir = self.get_project_rawdir(project_accession)
+        existing_runs = list(filter(lambda r: self.check_files_downloaded(raw_dir, r['analysis_id']+'.fasta.gz'), existing_runs))
+        existing_run_ids = [r['analysis_id'] for r in existing_runs]
+        return list(filter(lambda r: r[assembly_accession_field] not in existing_run_ids, insertable_assemblies))
 
     def map_project_info_db_row(self, assembly):
         return {
@@ -186,21 +190,23 @@ class FetchAssemblies(AbstractDataFetcher):
         headers = {'content-type': 'application/x-www-form-urlencoded'}
         try:
             res = requests.post(
-                self.config['enaAPIUrl'],
+                self.config['enaAPIUrl'] + 'search/',
                 headers=headers,
                 data=payload,
                 auth=(self.config['enaAPIUsername'], self.config['enaAPIPassword'])
             )
         except:
             raise
+        if res.status_code == 401:
+            raise EnvironmentError('Error 401: Authentication credentials missing for ENA API')
+        
         results = res.json()
         if len(results) == 0:
             logging.error("No results received for analysis object: {0}".format(
                 analysis_accession))
             logging.error("Shutting down the program now!")
         elif len(results) > 1:
-            logging.error(
-                "Unexpected number of results received for analysis object: {0}".format(
+            raise ValueError("Unexpected number of results received for analysis object: {0}".format(
                     analysis_accession))
         else:
             scientific_name = results[0]['scientific_name']
@@ -217,7 +223,7 @@ class FetchAssemblies(AbstractDataFetcher):
                 dest = os.path.join(raw_dir, dl_name)
                 dir, basename = os.path.split(dest)
                 name, ext = os.path.splitext(basename)
-                unmapped_dest = os.path.join(dir, name + '_unmapped.' + ext)
+                unmapped_dest = os.path.join(dir, name + '_unmapped' + ext)
                 was_downloaded = self.download_raw_file(dl_file, unmapped_dest, dl_md5)
 
                 mapped_md5 = self.get_md5_file(dl_file)
@@ -264,14 +270,14 @@ class FetchAssemblies(AbstractDataFetcher):
 
     def rename_fasta_headers(self, unmapped_fasta_file, fasta_file, project_accession, analysis_id):
         scientific_name = self.get_scientific_name(analysis_id)
+        print(scientific_name)
         contig_names = self.get_contig_range_from_api(project_accession, analysis_id)
         wgs_seq_set_acc, first_contig_number, last_contig_number = self.parse_wgs_seq_acc_range(contig_names)
         counter = 0
         logging.debug('Iterating through ' + fasta_file)
-        from tqdm import tqdm
         with gzip.open(unmapped_fasta_file, 'rt', encoding='utf-8') as original_f:
             with gzip.open(fasta_file, 'wt', encoding='utf-8') as new_f:
-                for line in tqdm(original_f):
+                for line in original_f:
                     if line.startswith('>'):
                         contig_name = line[1:]
                         contig_number = (first_contig_number + counter)
