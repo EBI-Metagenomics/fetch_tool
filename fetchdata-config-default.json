@@ -17,9 +17,9 @@
   "ssh_max_attempts": 4,
   "url_max_attempts": 5,
   "trustedBrokers": [
-    "MGRAST"
+    "MGRAST", "EBI-EMG", "EMBL-EBI", ""
   ],
-  "enaAPIUrl": "https://www.ebi.ac.uk/ena/portal/api/search",
+  "enaAPIUrl": "https://www.ebi.ac.uk/ena/portal/api/",
   "enaAPIUsername": "",
   "enaAPIPassword": "",
   "enaMasterPassword": "",

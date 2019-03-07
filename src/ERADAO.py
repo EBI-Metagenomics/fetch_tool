@@ -18,6 +18,26 @@ class ERADAO(object):
         """
         self.data_access_object = data_access_object
 
+    def retrieve_study_accessions_from_runs(self, run_ids):
+        """
+            Returns a list of study_ids For run accessions in run_ids
+        :param run_ids:
+        :return:
+        """
+        runs = ",".join(['\'' + run + '\'' for run in run_ids])
+        query = "SELECT study_id FROM v_mgp_run_file WHERE run_id IN ({}) GROUP BY study_id".format(runs)
+        return self.data_access_object._runQuery(query)
+
+    def retrieve_study_accessions_from_analyses(self, analysis_ids):
+        """
+            Returns a list of study_ids For run accessions in run_ids
+        :param run_ids:
+        :return:
+        """
+        analyses = ",".join(['\'' + id + '\'' for id in analysis_ids])
+        query = "SELECT study_id FROM v_mgp_assembly_file WHERE analysis_id IN ({}) GROUP BY study_id".format(analyses)
+        return self.data_access_object._runQuery(query)
+
     def retrieve_submitted_files(self, study_id):
         """
             Returns a list of submitted files.
@@ -25,7 +45,7 @@ class ERADAO(object):
         :return: list[dict]
         """
 
-        query = "SELECT study_id, sample_id, run_id, library_layout, data_file_path, tax_id, library_strategy, library_source, data_file_role FROM v_mgp_run_file WHERE study_id = '{}' and DATA_FILE_ROLE = 'SUBMISSION_FILE' and (DATA_FILE_FORMAT='FASTA' OR DATA_FILE_FORMAT='FASTQ') and DATA_FILE_PATH not like 'err%'".format(
+        query = "SELECT study_id, sample_id, run_id, library_layout, data_file_path, tax_id, library_strategy, library_source, data_file_role, md5 FROM v_mgp_run_file WHERE study_id = '{}' and DATA_FILE_ROLE = 'SUBMISSION_FILE' and (DATA_FILE_FORMAT='FASTA' OR DATA_FILE_FORMAT='FASTQ') and DATA_FILE_PATH not like 'err%'".format(
             study_id)
         return self.data_access_object._runQuery(query)
 
@@ -36,7 +56,7 @@ class ERADAO(object):
         :return:
         """
 
-        query = "SELECT study_id, sample_id, run_id, library_layout, data_file_path, tax_id, library_strategy, library_source, data_file_role FROM v_mgp_run_file WHERE study_id = '{}' and DATA_FILE_ROLE = 'GENERATED_FILE' and DATA_FILE_FORMAT='FASTQ' and DATA_FILE_PATH not like 'err%'".format(
+        query = "SELECT study_id, sample_id, run_id, library_layout, data_file_path, tax_id, library_strategy, library_source, data_file_role, md5 FROM v_mgp_run_file WHERE study_id = '{}' and DATA_FILE_ROLE = 'GENERATED_FILE' and DATA_FILE_FORMAT='FASTQ' and DATA_FILE_PATH not like 'err%'".format(
             study_id)
         return self.data_access_object._runQuery(query)
 

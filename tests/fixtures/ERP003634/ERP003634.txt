@@ -1,4 +1,4 @@
-study_id	sample_id	run_id	library_layout	file	file_path	tax_id	scientific_name	library_strategy	library_source	LATEST_PIPELINE_VERSION	analysis_status	sample_biome	opt:assembly_id	opt:analysis_id
+study_id	sample_id	run_id	library_layout	files	file_path	tax_id	scientific_name	library_strategy	library_source	LATEST_PIPELINE_VERSION	analysis_status	sample_biome	opt:assembly_id	opt:analysis_id
 ERP003634	ERS492445	ERR2010979	PAIRED	ERR2010979_1.fastq.gz;ERR2010979_2.fastq.gz	vol1/fastq/ERR201/009/ERR2010979	408172	marine metagenome	AMPLICON	METAGENOMIC	4.1	COMPLETED	biome_placeholder	opt:assembly_id	opt:analysis_id
 ERP003634	ERS478017	ERR315850	SINGLE	ERR315850.fastq.gz	vol1/fastq/ERR315/ERR315850	408172	marine metagenome	AMPLICON	METAGENOMIC	4.1	COMPLETED	biome_placeholder	opt:assembly_id	opt:analysis_id
 ERP003634	ERS478018	ERR315851	SINGLE	ERR315851.fastq.gz	vol1/fastq/ERR315/ERR315851	408172	marine metagenome	AMPLICON	METAGENOMIC	4.1	COMPLETED	biome_placeholder	opt:assembly_id	opt:analysis_id
