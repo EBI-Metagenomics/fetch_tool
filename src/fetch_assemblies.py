@@ -77,7 +77,8 @@ class FetchAssemblies(AbstractDataFetcher):
             return insertable_assemblies
 
         raw_dir = self.get_project_rawdir(project_accession)
-        existing_runs = list(filter(lambda r: self.check_files_downloaded(raw_dir, r['analysis_id']+'.fasta.gz'), existing_runs))
+        existing_runs = list(
+            filter(lambda r: self.check_files_downloaded(raw_dir, r['analysis_id'] + '.fasta.gz'), existing_runs))
         existing_run_ids = [r['analysis_id'] for r in existing_runs]
         return list(filter(lambda r: r[assembly_accession_field] not in existing_run_ids, insertable_assemblies))
 
@@ -93,7 +94,8 @@ class FetchAssemblies(AbstractDataFetcher):
         }
 
     def _get_assembly_metadata(self, secondary_project_accession):
-        return ERADAO(self.eradao).retrieve_assembly_metadata(secondary_project_accession)
+        submitted_files = ERADAO(self.eradao).retrieve_assembly_submitted_files(secondary_project_accession)
+        return submitted_files
 
     def _get_study_wgs_analyses(self, primary_project_accession):
         return ENADAO(self.enadao).retrieve_assembly_data(primary_project_accession)
@@ -196,7 +198,7 @@ class FetchAssemblies(AbstractDataFetcher):
         )
         if res.status_code == 401:
             raise EnvironmentError('Error 401: Authentication credentials missing for ENA API')
-        
+
         results = res.json()
         if len(results) == 0:
             logging.error("No results received for analysis object: {0}".format(
@@ -204,7 +206,7 @@ class FetchAssemblies(AbstractDataFetcher):
             logging.error("Shutting down the program now!")
         elif len(results) > 1:
             raise ValueError("Unexpected number of results received for analysis object: {0}".format(
-                    analysis_accession))
+                analysis_accession))
         else:
             scientific_name = results[0]['scientific_name']
             return scientific_name
@@ -226,7 +228,7 @@ class FetchAssemblies(AbstractDataFetcher):
                 mapped_md5 = self.get_md5_file(dl_file)
                 if (not self._is_file_valid(dest, mapped_md5)) or was_downloaded or self.force_mode:
                     logging.debug('Remapping ' + dl_file)
-                    self.rename_fasta_headers(unmapped_dest, dest, project_accession, assembly['ANALYSIS_ID'])
+                    self.rename_fasta_headers(unmapped_dest, dest, assembly['ANALYSIS_ID'])
 
     def get_contig_range_from_api(self, project_accession, analysis_id):
         '''
@@ -265,25 +267,17 @@ class FetchAssemblies(AbstractDataFetcher):
         wgs_seq_set_acc, start, end = re.findall(r'.+:(.{6})(\d+)-\1(\d+)', line)[0]
         return wgs_seq_set_acc, int(start), int(end)
 
-    def rename_fasta_headers(self, unmapped_fasta_file, fasta_file, project_accession, analysis_id):
-        scientific_name = self.get_scientific_name(analysis_id)
-        contig_names = self.get_contig_range_from_api(project_accession, analysis_id)
-        wgs_seq_set_acc, first_contig_number, last_contig_number = self.parse_wgs_seq_acc_range(contig_names)
-        counter = 0
+    def rename_fasta_headers(self, unmapped_fasta_file, fasta_file, analysis_id):
+        counter = 1
         logging.debug('Iterating through ' + fasta_file)
         with gzip.open(unmapped_fasta_file, 'rt', encoding='utf-8') as original_f:
             with gzip.open(fasta_file, 'wt', encoding='utf-8') as new_f:
                 for line in original_f:
                     if line.startswith('>'):
                         contig_name = line[1:]
-                        contig_number = (first_contig_number + counter)
-                        contig_number = '{:08}'.format(contig_number)
-                        line = '>ENA|{wgs_seq_set_acc}{contig_number}|{wgs_seq_set_acc}{contig_number}.1 ' \
-                               '{scientific_name} genome assembly, ' \
-                               'contig: {contig_name}'.format(wgs_seq_set_acc=wgs_seq_set_acc,
-                                                              contig_number=contig_number,
-                                                              scientific_name=scientific_name,
-                                                              contig_name=contig_name)
+                        line = '>{analysis_id}.{counter} {contig_name}'.format(analysis_id=analysis_id,
+                                                                               counter=counter,
+                                                                               contig_name=contig_name)
                         counter += 1
                     new_f.write(line)
         logging.debug('Finished re-mapping fasta file')
