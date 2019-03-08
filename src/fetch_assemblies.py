@@ -13,7 +13,7 @@ path_re = re.compile(r'(.*)/(.*)')
 
 
 class FetchAssemblies(AbstractDataFetcher):
-    DEFAULT_HEADERS = ['study_id', 'sample_id', 'analysis_id', 'files', 'file_path']
+    DEFAULT_HEADERS = ['study_id', 'sample_id', 'analysis_id', 'file', 'file_path']
 
     ENA_PROJECT_URL = 'http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession={0}&result=analysis&fields=analysis_accession,study_accession,secondary_study_accession,sample_accession,secondary_sample_accession,analysis_title,analysis_type,center_name,first_public,last_updated,study_title,analysis_alias,study_alias,submitted_md5,submitted_ftp,sample_alias,broker_name,sample_title&download=txt'
 
@@ -86,7 +86,7 @@ class FetchAssemblies(AbstractDataFetcher):
             'study_id': assembly['STUDY_ID'],
             'sample_id': assembly['SAMPLE_ID'],
             'analysis_id': assembly['ANALYSIS_ID'],
-            'files': assembly['files'],
+            'file': assembly['file'],
             'file_path': assembly['DATA_FILE_PATH'],
             'scientific_name': 'n/a',
             'md5': assembly['MD5']
@@ -108,7 +108,7 @@ class FetchAssemblies(AbstractDataFetcher):
         study_analyses = self._combine_analyses(metadata_analyses, wgs_analyses)
         # Allow force mode to bypass filtering
         for data in study_analyses:
-            data['DATA_FILE_PATH'], data['files'], data['MD5'] = self._get_raw_filenames(
+            data['DATA_FILE_PATH'], data['file'], data['MD5'] = self._get_raw_filenames(
                 data['DATA_FILE_PATH'],
                 data['MD5'],
                 data['ANALYSIS_ID'],
@@ -152,7 +152,7 @@ class FetchAssemblies(AbstractDataFetcher):
         assemblydata['SAMPLE_ID'] = assemblydata.pop('secondary_sample_accession')
         assemblydata['DATA_FILE_PATH'] = assemblydata.pop('submitted_ftp')
         assemblydata['ANALYSIS_ID'] = assemblydata.pop('analysis_accession')
-        assemblydata['DATA_FILE_PATH'], assemblydata['files'], assemblydata['MD5'] = self._get_raw_filenames(
+        assemblydata['DATA_FILE_PATH'], assemblydata['file'], assemblydata['MD5'] = self._get_raw_filenames(
             assemblydata['DATA_FILE_PATH'],
             assemblydata.pop('submitted_md5'),
             assemblydata['ANALYSIS_ID'],
@@ -217,7 +217,7 @@ class FetchAssemblies(AbstractDataFetcher):
         os.makedirs(raw_dir, exist_ok=True)
         for assembly in new_assemblies:
             download_sources = assembly['DATA_FILE_PATH']
-            filenames = assembly['files']
+            filenames = assembly['file']
             file_md5s = assembly['MD5']
             for dl_file, dl_name, dl_md5 in zip(download_sources, filenames, file_md5s):
                 dest = os.path.join(raw_dir, dl_name)
@@ -270,7 +270,6 @@ class FetchAssemblies(AbstractDataFetcher):
 
     def rename_fasta_headers(self, unmapped_fasta_file, fasta_file, project_accession, analysis_id):
         scientific_name = self.get_scientific_name(analysis_id)
-        print(scientific_name)
         contig_names = self.get_contig_range_from_api(project_accession, analysis_id)
         wgs_seq_set_acc, first_contig_number, last_contig_number = self.parse_wgs_seq_acc_range(contig_names)
         counter = 0

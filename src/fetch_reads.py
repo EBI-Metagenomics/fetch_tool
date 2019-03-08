@@ -9,7 +9,7 @@ path_re = re.compile(r'(.*)/(.*)')
 
 
 class FetchReads(AbstractDataFetcher):
-    DEFAULT_HEADERS = ['study_id', 'sample_id', 'run_id', 'library_layout', 'files', 'file_path', 'tax_id',
+    DEFAULT_HEADERS = ['study_id', 'sample_id', 'run_id', 'library_layout', 'file', 'file_path', 'tax_id',
                        'scientific_name', 'library_strategy', 'library_source']
 
     ENA_PROJECT_URL = 'http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession={0}&result=read_run&' \
@@ -70,7 +70,7 @@ class FetchReads(AbstractDataFetcher):
             return insertable_runs
 
         raw_dir = self.get_project_rawdir(project_accession)
-        existing_runs = list(filter(lambda r: self.check_files_downloaded(raw_dir, r['files']), existing_runs))
+        existing_runs = list(filter(lambda r: self.check_files_downloaded(raw_dir, r.get('file') or r.get('files')), existing_runs))
         existing_run_ids = [r['run_id'] for r in existing_runs]
         return list(filter(lambda r: r[run_accession_field] not in existing_run_ids, insertable_runs))
 
@@ -80,7 +80,7 @@ class FetchReads(AbstractDataFetcher):
             'sample_id': run['SAMPLE_ID'],
             'run_id': run['RUN_ID'],
             'library_layout': run['LIBRARY_LAYOUT'],
-            'files': run['files'],
+            'file': run['file'],
             'file_path': run['DATA_FILE_PATH'],
             'tax_id': run['TAX_ID'],
             'scientific_name': 'n/a',
@@ -108,7 +108,7 @@ class FetchReads(AbstractDataFetcher):
                 project_accession, broker))
         for data in study_run_data:
             is_submitted_file = data['DATA_FILE_ROLE'] == 'SUBMITTED_FILE'
-            data['DATA_FILE_PATH'], data['files'], data['MD5'] = self._get_raw_filenames(data['DATA_FILE_PATH'],
+            data['DATA_FILE_PATH'], data['file'], data['MD5'] = self._get_raw_filenames(data['DATA_FILE_PATH'],
                                                                                          data['MD5'],
                                                                                          data['RUN_ID'],
                                                                                          is_submitted_file)
@@ -130,7 +130,7 @@ class FetchReads(AbstractDataFetcher):
         rundata['DATA_FILE_ROLE'] = 'SUBMISSION_FILE' if is_submitted_file else 'GENERATED_FILE'
         file_paths = rundata.get('fastq_ftp') or rundata.get('submitted_ftp')
         md5s = rundata.get('fastq_md5') or rundata.get('submitted_md5')
-        rundata['DATA_FILE_PATH'], rundata['files'], rundata['MD5'] = self._get_raw_filenames(file_paths,
+        rundata['DATA_FILE_PATH'], rundata['file'], rundata['MD5'] = self._get_raw_filenames(file_paths,
                                                                                               md5s,
                                                                                               rundata['RUN_ID'],
                                                                                               is_submitted_file)

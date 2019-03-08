@@ -181,7 +181,7 @@ class AbstractDataFetcher(ABC):
         os.makedirs(raw_dir, exist_ok=True)
         for run in new_runs:
             download_sources = run['DATA_FILE_PATH']
-            filenames = run['files']
+            filenames = run['file']
             file_md5s = run['MD5']
             for dl_file, dl_name, dl_md5 in zip(download_sources, filenames, file_md5s):
                 dest = os.path.join(raw_dir, dl_name)
@@ -228,7 +228,7 @@ class AbstractDataFetcher(ABC):
     def write_project_download_file(self, project_accession, new_rows):
         new_download_rows = []
         for run in new_rows:
-            for file_path, file in zip(run['file_path'], run['files']):
+            for file_path, file in zip(run['file_path'], run['file']):
                 row = file_path + '\t' + file + '\n'
                 new_download_rows.append(row)
 
@@ -258,7 +258,7 @@ class AbstractDataFetcher(ABC):
     @staticmethod
     def clean_data_row(data):
         clean_data = copy.deepcopy(data)
-        for field in ['files', 'file_path']:
+        for field in ['file', 'file_path']:
             clean_data[field] = ";".join(clean_data[field])
         return clean_data
 
