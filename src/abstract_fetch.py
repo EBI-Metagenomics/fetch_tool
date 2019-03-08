@@ -344,16 +344,16 @@ class AbstractDataFetcher(ABC):
     @staticmethod
     def _rename_raw_files(file_names, run_id):
         file_names = [f.lower() for f in file_names]
-        if any(x in ";".join(file_names) for x in ['.fasta', '.fna', '.fa']):
+        if any([".fastq" in fn for fn in file_names]):
+            filetype = ".fastq.gz"
+        elif any(x in ";".join(file_names) for x in ['.fasta', '.fna', '.fa']):
             filetype = ".fasta.gz"
-        elif any([".fastq" in fn for fn in file_names]):
-            filetype = ".fastq"
         else:
             raise ValueError("Unknown sequence file format: " + ",".join(file_names))
         if len(file_names) == 1:
             return [run_id + filetype]
         else:
-            return [run_id + '_' + str(i+1) + filetype for i, _ in enumerate(file_names)]
+            return [run_id + '_' + str(i + 1) + filetype for i, _ in enumerate(file_names)]
 
     @staticmethod
     def load_oracle_connection(user, password, host, port, instance):
