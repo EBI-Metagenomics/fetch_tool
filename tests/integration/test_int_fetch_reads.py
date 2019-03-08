@@ -36,7 +36,7 @@ def validate_full_study(tmpdir):
     study_file = os.path.join(study_dir, study_id + '.txt')
     with open(study_file) as f:
         study_data = f.readlines()
-    assert study_data[0] == 'study_id\tsample_id\trun_id\tlibrary_layout\tfiles\tfile_path\ttax_id\t' \
+    assert study_data[0] == 'study_id\tsample_id\trun_id\tlibrary_layout\tfile\tfile_path\ttax_id\t' \
                             'scientific_name\tlibrary_strategy\tlibrary_source\n'
     assert study_data[1] == 'ERP110686\tERS2702567\tERR2777789\tSINGLE\tERR2777789.fasta.gz\t' \
                             'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz\t' \
@@ -51,8 +51,8 @@ def validate_full_study(tmpdir):
     assert len(download_data) == 2
 
     raw_dir = os.path.join(study_dir, 'raw')
-    expected_files = ['ERR2777789.fasta.gz', 'ERR2777790.fasta.gz']
-    for f in expected_files:
+    expected_file = ['ERR2777789.fasta.gz', 'ERR2777790.fasta.gz']
+    for f in expected_file:
         f_path = os.path.join(raw_dir, f)
         assert os.path.getsize(f_path) > 0
 
@@ -64,7 +64,7 @@ def validate_single_study_run(tmpdir):
     study_file = os.path.join(study_dir, study_id + '.txt')
     with open(study_file) as f:
         study_data = f.readlines()
-    assert study_data[0] == 'study_id\tsample_id\trun_id\tlibrary_layout\tfiles\tfile_path\ttax_id\t' \
+    assert study_data[0] == 'study_id\tsample_id\trun_id\tlibrary_layout\tfile\tfile_path\ttax_id\t' \
                             'scientific_name\tlibrary_strategy\tlibrary_source\n'
     assert study_data[1] == 'ERP110686\tERS2702567\tERR2777789\tSINGLE\tERR2777789.fasta.gz\t' \
                             'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz\t' \
@@ -76,8 +76,8 @@ def validate_single_study_run(tmpdir):
     assert len(download_data) == 1
 
     raw_dir = os.path.join(study_dir, 'raw')
-    expected_files = ['ERR2777789.fasta.gz']
-    for f in expected_files:
+    expected_file = ['ERR2777789.fasta.gz']
+    for f in expected_file:
         f_path = os.path.join(raw_dir, f)
         assert os.path.getsize(f_path) > 0
 

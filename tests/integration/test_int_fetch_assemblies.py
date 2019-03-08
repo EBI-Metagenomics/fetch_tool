@@ -36,7 +36,7 @@ def validate_full_study(tmpdir):
     study_file = os.path.join(study_dir, study_id + '.txt')
     with open(study_file) as f:
         study_data = f.readlines()
-    assert study_data[0] == 'study_id\tsample_id\tanalysis_id\tfiles\tfile_path\n'
+    assert study_data[0] == 'study_id\tsample_id\tanalysis_id\tfile\tfile_path\n'
     assert study_data[1] == 'ERP104225\tSRS591962\tERZ477682\tERZ477682.fasta.gz\t' \
                             'ftp.sra.ebi.ac.uk/vol1/ERZ477/ERZ477682/SRR1238172.fasta.gz\n'
     assert study_data[2] == 'ERP104225\tSRS591965\tERZ477683\tERZ477683.fasta.gz\t' \
@@ -52,8 +52,8 @@ def validate_full_study(tmpdir):
     assert len(download_data) == 4
 
     raw_dir = os.path.join(study_dir, 'raw')
-    expected_files = ['ERZ477682.fasta.gz', 'ERZ477683.fasta.gz', 'ERZ477684.fasta.gz', 'ERZ477685.fasta.gz', ]
-    for f in expected_files:
+    expected_file = ['ERZ477682.fasta.gz', 'ERZ477683.fasta.gz', 'ERZ477684.fasta.gz', 'ERZ477685.fasta.gz', ]
+    for f in expected_file:
         f_path = os.path.join(raw_dir, f)
         assert os.path.getsize(f_path) > 0
 

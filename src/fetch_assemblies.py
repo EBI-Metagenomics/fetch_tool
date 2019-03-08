@@ -188,15 +188,12 @@ class FetchAssemblies(AbstractDataFetcher):
             "format": "json",
         }
         headers = {'content-type': 'application/x-www-form-urlencoded'}
-        try:
-            res = requests.post(
-                self.config['enaAPIUrl'] + 'search/',
-                headers=headers,
-                data=payload,
-                auth=(self.config['enaAPIUsername'], self.config['enaAPIPassword'])
-            )
-        except:
-            raise
+        res = requests.post(
+            self.config['enaAPIUrl'] + 'search/',
+            headers=headers,
+            data=payload,
+            auth=(self.config['enaAPIUsername'], self.config['enaAPIPassword'])
+        )
         if res.status_code == 401:
             raise EnvironmentError('Error 401: Authentication credentials missing for ENA API')
         

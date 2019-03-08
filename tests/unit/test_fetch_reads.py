@@ -123,7 +123,7 @@ class TestFetchReads:
             'TAX_ID': '1231',
             'LIBRARY_SOURCE': 'METAGENOMIC',
             'LIBRARY_STRATEGY': 'WGS',
-            'files': 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz',
+            'file': 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz',
             'DATA_FILE_PATH': '/tmp/ERP001736/ERR599383_1.fastq.gz;/tmp/ERP001736/ERR599383_2.fastq.gz',
         }
         fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
@@ -148,13 +148,13 @@ class TestFetchReads:
             'TAX_ID': '1231',
             'LIBRARY_SOURCE': 'METAGENOMIC',
             'LIBRARY_STRATEGY': 'WGS',
-            'files': 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz',
+            'file': 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz',
             'DATA_FILE_PATH': '/tmp/ERP001736/ERR599383_1.fastq.gz;/tmp/ERP001736/ERR599383_2.fastq.gz',
             'DATA_FILE_ROLE': 'SUBMITTED',
         }
         fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
         transform = fetch.map_project_info_db_row(raw_data)
-        assert transform['files'] == 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz'
+        assert transform['file'] == 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz'
 
     def test_is_trusted_ftp_data_should_be_trusted_from_broker(self):
         fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
@@ -183,7 +183,7 @@ class TestFetchReads:
         ]
         assert 1 == len(fetch._filter_ftp_broker_names(run_data))
 
-    def test_filter_ftp_broker_names_should_allow_generated_files(self):
+    def test_filter_ftp_broker_names_should_allow_generated_file(self):
         fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
         fetch.config['trustedBrokers'] = ['EMG']
         run_data = [
@@ -218,7 +218,7 @@ class TestFetchReads:
             'DATA_FILE_ROLE': 'GENERATED_FILE',
             'DATA_FILE_PATH': ('/tmp/ERP001736/ERR599383_1.fastq.gz', '/tmp/ERP001736/ERR599383_2.fastq.gz'),
             'MD5': ('md51', 'md52'),
-            'files': ['ERR599383_1.fastq.gz', 'ERR599383_2.fastq.gz'],
+            'file': ['ERR599383_1.fastq.gz', 'ERR599383_2.fastq.gz'],
         }
 
     def test_retrieve_project_info_ftp_should_fetch_all_runs(self, tmpdir):
@@ -285,7 +285,7 @@ class TestFetchReads:
         with pytest.raises(NotImplementedError):
             afr.FetchReads(argv=['-ru', 'ERR599083', '-d', str(tmpdir)])
 
-    def test_write_project_files_should_create_both_files(self, tmpdir):
+    def test_write_project_files_should_create_both_file(self, tmpdir):
         tmpdir = str(tmpdir)
         study_accession = 'ERP110686'
         project_dir = os.path.join(tmpdir, study_accession)
@@ -296,7 +296,7 @@ class TestFetchReads:
              'STUDY_ID': 'ERP110686', 'SAMPLE_ID': 'ERS2702567', 'RUN_ID': 'ERR2777789',
              'DATA_FILE_ROLE': 'SUBMISSION_FILE',
              'DATA_FILE_PATH': ('ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz',),
-             'files': ['ERR2777789.fasta.gz'], 'MD5': ('7935d13d964cc6bc5038f7706ec3e1c4',), 'TAX_ID': '256318',
+             'file': ['ERR2777789.fasta.gz'], 'MD5': ('7935d13d964cc6bc5038f7706ec3e1c4',), 'TAX_ID': '256318',
              'LIBRARY_STRATEGY': 'AMPLICON', 'LIBRARY_SOURCE': 'METAGENOMIC', 'LIBRARY_LAYOUT': 'SINGLE'}]
         fetch = afr.FetchReads(argv=['-p', study_accession, '-ru', 'ERR2777789', '-d', tmpdir])
         fetch.write_project_files(study_accession, run_data)

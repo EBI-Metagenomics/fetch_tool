@@ -114,7 +114,7 @@ class TestFetchAssemblies:
             'STUDY_ID': 'ERP104225',
             'SAMPLE_ID': 'ERS599830',
             'ANALYSIS_ID': 'ERZ477685',
-            'files': 'ERZ477685.fasta.gz',
+            'file': 'ERZ477685.fasta.gz',
             'DATA_FILE_PATH': '/tmp/ERP104225/ERZ477685.fasta.gz',
             'MD5': ('md51',),
         }
@@ -133,14 +133,14 @@ class TestFetchAssemblies:
             'STUDY_ID': 'ERP104225',
             'SAMPLE_ID': 'ERS599830',
             'ANALYSIS_ID': 'ERZ477685',
-            'files': 'ERZ477685.fasta.gz',
+            'file': 'ERZ477685.fasta.gz',
             'DATA_FILE_PATH': '/tmp/ERP104225/ERZ477685.fasta.gz',
             'DATA_FILE_ROLE': 'SUBMITTED',
             'MD5': ('md51',),
         }
         fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
         transform = fetch.map_project_info_db_row(raw_data)
-        assert transform['files'] == 'ERZ477685.fasta.gz'
+        assert transform['file'] == 'ERZ477685.fasta.gz'
 
     def test_is_trusted_ftp_data_should_be_trusted_from_broker(self):
         fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
@@ -169,7 +169,7 @@ class TestFetchAssemblies:
         ]
         assert 'EMG' == fetch._filter_ftp_broker_names(run_data)[0]['broker_name']
 
-    def test_filter_ftp_broker_names_should_allow_generated_files(self):
+    def test_filter_ftp_broker_names_should_allow_generated_file(self):
         fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
         fetch.config['trustedBrokers'] = ['EMG']
         run_data = [
@@ -193,7 +193,7 @@ class TestFetchAssemblies:
             'ANALYSIS_ID': raw_data['analysis_accession'],
             'DATA_FILE_PATH': ('/tmp/ERP104225/ERZ477685.fasta.gz',),
             'MD5': ('md51',),
-            'files': ['ERZ477685.fasta.gz'],
+            'file': ['ERZ477685.fasta.gz'],
         }
 
     def test_retrieve_project_info_ftp_should_fetch_all_assemblies(self, tmpdir):
