@@ -499,6 +499,7 @@ class AbstractDataFetcher(ABC):
 
     def write_project_files(self, project_accession, new_runs):
         new_run_rows = list(map(self.map_project_info_db_row, new_runs))
+        print(new_run_rows)
         self.write_project_description_file(project_accession, new_run_rows, self.ACCESSION_FIELD.lower())
         self.write_project_download_file(project_accession, new_run_rows)
 

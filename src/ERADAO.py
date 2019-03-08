@@ -45,7 +45,7 @@ class ERADAO(object):
         :return: list[dict]
         """
 
-        query = "SELECT study_id, sample_id, run_id, library_layout, data_file_path, tax_id, library_strategy, library_source, data_file_role, md5 FROM v_mgp_run_file WHERE study_id = '{}' and DATA_FILE_ROLE = 'SUBMISSION_FILE' and (DATA_FILE_FORMAT='FASTA' OR DATA_FILE_FORMAT='FASTQ') and DATA_FILE_PATH not like 'err%'".format(
+        query = "SELECT study_id, sample_id, run_id, library_layout, LISTAGG(data_file_path, ';') WITHIN group( order by run_id) as data_file_path, tax_id, library_strategy, library_source, data_file_role, LISTAGG(md5, ';') WITHIN group( order by run_id) as md5 FROM v_mgp_run_file WHERE study_id = '{}' and DATA_FILE_ROLE = 'SUBMISSION_FILE' and (DATA_FILE_FORMAT='FASTA' OR DATA_FILE_FORMAT='FASTQ') and DATA_FILE_PATH not like 'err%' GROUP BY study_id, sample_id, run_id, library_layout, tax_id, library_strategy, library_source, data_file_role".format(
             study_id)
         return self.data_access_object._runQuery(query)
 
@@ -56,7 +56,7 @@ class ERADAO(object):
         :return:
         """
 
-        query = "SELECT study_id, sample_id, run_id, library_layout, data_file_path, tax_id, library_strategy, library_source, data_file_role, md5 FROM v_mgp_run_file WHERE study_id = '{}' and DATA_FILE_ROLE = 'GENERATED_FILE' and DATA_FILE_FORMAT='FASTQ' and DATA_FILE_PATH not like 'err%'".format(
+        query = "SELECT study_id, sample_id, run_id, library_layout, LISTAGG(data_file_path, ';') WITHIN group( order by run_id) as data_file_path, tax_id, library_strategy, library_source, data_file_role, LISTAGG(md5, ';') WITHIN group( order by run_id) as md5 FROM v_mgp_run_file WHERE (study_id = '{}' and DATA_FILE_ROLE = 'GENERATED_FILE' and DATA_FILE_FORMAT='FASTQ' and DATA_FILE_PATH not like 'err%') GROUP BY study_id, sample_id, run_id, library_layout, tax_id, library_strategy, library_source, data_file_role".format(
             study_id)
         return self.data_access_object._runQuery(query)
 
@@ -67,7 +67,7 @@ class ERADAO(object):
         :return:
         """
 
-        query = "SELECT study_id, project_id, sample_id, analysis_id, data_file_format, data_file_path, tax_id, bytes, md5 FROM v_mgp_assembly_file WHERE data_file_format = 'FASTA' and study_id = '{}'".format(
+        query = "SELECT study_id, project_id, sample_id, analysis_id, data_file_format, LISTAGG(data_file_path, ';') WITHIN group( order by run_id) as data_file_path, tax_id, bytes, LISTAGG(md5, ';') WITHIN group( order by run_id) as md5 FROM v_mgp_assembly_file WHERE data_file_format = 'FASTA' and study_id = '{}'  GROUP BY study_id, sample_id, analysis_id, library_layout, tax_id, library_strategy, library_source, data_file_role ".format(
             study_id)
         return self.data_access_object._runQuery(query)
 

@@ -1,6 +1,5 @@
 import re
 import logging
-import os
 from src.ERADAO import ERADAO
 
 from src.abstract_fetch import AbstractDataFetcher
@@ -70,7 +69,8 @@ class FetchReads(AbstractDataFetcher):
             return insertable_runs
 
         raw_dir = self.get_project_rawdir(project_accession)
-        existing_runs = list(filter(lambda r: self.check_files_downloaded(raw_dir, r.get('file') or r.get('files')), existing_runs))
+        existing_runs = list(
+            filter(lambda r: self.check_files_downloaded(raw_dir, r.get('file') or r.get('files')), existing_runs))
         existing_run_ids = [r['run_id'] for r in existing_runs]
         return list(filter(lambda r: r[run_accession_field] not in existing_run_ids, insertable_runs))
 
@@ -109,9 +109,9 @@ class FetchReads(AbstractDataFetcher):
         for data in study_run_data:
             is_submitted_file = data['DATA_FILE_ROLE'] == 'SUBMITTED_FILE'
             data['DATA_FILE_PATH'], data['file'], data['MD5'] = self._get_raw_filenames(data['DATA_FILE_PATH'],
-                                                                                         data['MD5'],
-                                                                                         data['RUN_ID'],
-                                                                                         is_submitted_file)
+                                                                                        data['MD5'],
+                                                                                        data['RUN_ID'],
+                                                                                        is_submitted_file)
         return study_run_data
 
     @staticmethod
@@ -131,9 +131,9 @@ class FetchReads(AbstractDataFetcher):
         file_paths = rundata.get('fastq_ftp') or rundata.get('submitted_ftp')
         md5s = rundata.get('fastq_md5') or rundata.get('submitted_md5')
         rundata['DATA_FILE_PATH'], rundata['file'], rundata['MD5'] = self._get_raw_filenames(file_paths,
-                                                                                              md5s,
-                                                                                              rundata['RUN_ID'],
-                                                                                              is_submitted_file)
+                                                                                             md5s,
+                                                                                             rundata['RUN_ID'],
+                                                                                             is_submitted_file)
         for key in ('fastq_ftp', 'submitted_ftp', 'fastq_md5', 'submitted_md5'):
             del rundata[key]
         rundata['TAX_ID'] = rundata.pop('tax_id')
