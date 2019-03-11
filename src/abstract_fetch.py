@@ -252,6 +252,9 @@ class AbstractDataFetcher(ABC):
 
     @staticmethod
     def check_files_downloaded(raw_dir, filenames):
+        # Filter NaN values from pandas
+        if not isinstance(filenames, str):
+            return False
         filepaths = [os.path.join(raw_dir, f) for f in filenames.split(';')]
         return all(list(map(os.path.isfile, filepaths)))
 
