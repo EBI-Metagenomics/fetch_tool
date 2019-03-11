@@ -218,13 +218,12 @@ class FetchAssemblies(AbstractDataFetcher):
             download_sources = assembly['DATA_FILE_PATH']
             filenames = assembly['file']
             file_md5s = assembly['MD5']
-            for dl_file, dl_name, dl_md5 in zip(download_sources, filenames, file_md5s):
+            for dl_file, dl_name in zip(download_sources, filenames):
                 dest = os.path.join(raw_dir, dl_name)
                 dir, basename = os.path.split(dest)
                 name, ext = os.path.splitext(basename)
                 unmapped_dest = os.path.join(dir, name + '_unmapped' + ext)
-                was_downloaded = self.download_raw_file(dl_file, unmapped_dest, dl_md5)
-
+                was_downloaded = self.download_raw_file(dl_file, unmapped_dest, file_md5s)
                 mapped_md5 = self.get_md5_file(dl_file)
                 if (not self._is_file_valid(dest, mapped_md5)) or was_downloaded or self.force_mode:
                     logging.debug('Remapping ' + dl_file)

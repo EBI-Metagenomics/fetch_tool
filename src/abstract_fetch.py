@@ -183,17 +183,17 @@ class AbstractDataFetcher(ABC):
             download_sources = run['DATA_FILE_PATH']
             filenames = run['file']
             file_md5s = run['MD5']
-            for dl_file, dl_name, dl_md5 in zip(download_sources, filenames, file_md5s):
+            for dl_file, dl_name in zip(download_sources, filenames):
                 dest = os.path.join(raw_dir, dl_name)
-                self.download_raw_file(dl_file, dest, dl_md5)
+                self.download_raw_file(dl_file, dest, file_md5s)
 
-    def download_raw_file(self, dl_file, dest, dl_md5):
+    def download_raw_file(self, dl_file, dest, dl_md5s):
         """
             Returns true if file was re-downloaded
         """
         filename = os.path.basename(dest)
 
-        if not self._is_file_valid(dest, dl_md5) or self.force_mode:
+        if not self._is_file_valid(dest, dl_md5s) or self.force_mode:
             silentremove(dest)
             if self.private_mode:
                 self.download_dcc(dest, dl_file)
@@ -203,7 +203,7 @@ class AbstractDataFetcher(ABC):
         else:
             logging.info('File {} already exists, skipping download'.format(filename))
             file_downloaded = False
-        if not self._is_file_valid(dest, dl_md5):
+        if not self._is_file_valid(dest, dl_md5s):
             raise EnvironmentError('MD5 of downloaded file {} does not match expected MD5'.format(filename))
         return file_downloaded
 
@@ -389,7 +389,7 @@ class AbstractDataFetcher(ABC):
     def _is_file_valid(dest, file_md5):
         if os.path.exists(dest):
             basename = os.path.basename(dest)
-            if md5(dest) == file_md5:
+            if md5(dest) in file_md5:
                 return True
             else:
                 logging.info('File {} exists, but MD5 does not match'.format(basename))
@@ -502,7 +502,6 @@ class AbstractDataFetcher(ABC):
 
     def write_project_files(self, project_accession, new_runs):
         new_run_rows = list(map(self.map_project_info_db_row, new_runs))
-        print(new_run_rows)
         self.write_project_description_file(project_accession, new_run_rows, self.ACCESSION_FIELD.lower())
         self.write_project_download_file(project_accession, new_run_rows)
 
