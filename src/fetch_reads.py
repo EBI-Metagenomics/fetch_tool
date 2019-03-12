@@ -62,18 +62,6 @@ class FetchReads(AbstractDataFetcher):
             run_data = list(filter(lambda r: r[run_accession_field] in self.runs, run_data))
         return run_data
 
-    def _filter_accessions_from_existing_downloads(self, project_accession, insertable_runs, run_accession_field):
-        try:
-            existing_runs = self.read_project_description_file(project_accession).to_dict('records')
-        except FileNotFoundError:
-            return insertable_runs
-
-        raw_dir = self.get_project_rawdir(project_accession)
-        existing_runs = list(
-            filter(lambda r: self.check_files_downloaded(raw_dir, r.get('file') or r.get('files')), existing_runs))
-        existing_run_ids = [r['run_id'] for r in existing_runs]
-        return list(filter(lambda r: r[run_accession_field] not in existing_run_ids, insertable_runs))
-
     def map_project_info_db_row(self, run):
         return {
             'study_id': run['STUDY_ID'],

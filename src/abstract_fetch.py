@@ -140,24 +140,18 @@ class AbstractDataFetcher(ABC):
     def _filter_accessions_from_args(self, data, fieldname):
         pass
 
-    @abstractmethod
-    def _filter_accessions_from_existing_downloads(self, project_accession, data, fieldname):
-        pass
-
     def fetch(self):
         for project_accession in self.projects:
             self.fetch_project(project_accession)
 
-    def filter_by_accessions(self, project_accession, new_data):
+    def filter_by_accessions(self, new_data):
         if not self.force_mode:
             new_data = self._filter_accessions_from_args(new_data, self.ACCESSION_FIELD)
-            new_data = self._filter_accessions_from_existing_downloads(project_accession, new_data,
-                                                                       self.ACCESSION_FIELD)
         return new_data
 
     def fetch_project(self, project_accession):
         new_data = self.retrieve_project(project_accession)
-        new_data = self.filter_by_accessions(project_accession, new_data)
+        new_data = self.filter_by_accessions(new_data)
         if len(new_data) == 0 and not self.force_mode:
             logging.warning('No new data found')
             return
@@ -192,7 +186,6 @@ class AbstractDataFetcher(ABC):
             Returns true if file was re-downloaded
         """
         filename = os.path.basename(dest)
-
         if not self._is_file_valid(dest, dl_md5s) or self.force_mode:
             silentremove(dest)
             if self.private_mode:

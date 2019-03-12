@@ -69,19 +69,6 @@ class FetchAssemblies(AbstractDataFetcher):
     def _filter_assembly_accessions(assembly_accessions, existing_assembly_accessions):
         return list(filter(lambda r: r not in existing_assembly_accessions, assembly_accessions))
 
-    def _filter_accessions_from_existing_downloads(self, project_accession, insertable_assemblies,
-                                                   assembly_accession_field):
-        try:
-            existing_runs = self.read_project_description_file(project_accession).to_dict('records')
-        except FileNotFoundError:
-            return insertable_assemblies
-
-        raw_dir = self.get_project_rawdir(project_accession)
-        existing_runs = list(
-            filter(lambda r: self.check_files_downloaded(raw_dir, r['analysis_id'] + '.fasta.gz'), existing_runs))
-        existing_run_ids = [r['analysis_id'] for r in existing_runs]
-        return list(filter(lambda r: r[assembly_accession_field] not in existing_run_ids, insertable_assemblies))
-
     def map_project_info_db_row(self, assembly):
         return {
             'study_id': assembly['STUDY_ID'],

@@ -64,19 +64,19 @@ class TestFetchReads:
     def test_filter_by_accessions_should_return_empty(self):
         fetch = afr.FetchReads(argv=['-p', 'ERP001736'])
         fetch.runs = 'ERR599830'
-        assert [] == fetch.filter_by_accessions('ERP001736', [])
+        assert [] == fetch.filter_by_accessions([])
 
     def test_filter_by_accessions_should_skip_with_force(self):
         fetch = afr.FetchReads(argv=['-p', 'ERP001736', '-f'])
         run_accession = 'ERR599830'
         run_data = [{'run_id': run_accession}]
-        assert run_data == fetch.filter_by_accessions('ERP001736', run_data)
+        assert run_data == fetch.filter_by_accessions(run_data)
 
     def test_filter_by_accessions_should_not_filter_new_run(self):
         fetch = afr.FetchReads(argv=['-p', 'ERP001736'])
         fetch.runs = ['ERR599830', 'ERR599831']
         run_data = [{'RUN_ID': 'ERR599831'}]
-        assert run_data == fetch.filter_by_accessions('ERP001736', run_data)
+        assert run_data == fetch.filter_by_accessions(run_data)
 
     def test_filter_accessions_from_args_should_return_empty(self):
         fetch = afr.FetchReads(argv=['-p', 'ERP001736'])
@@ -93,26 +93,6 @@ class TestFetchReads:
             {'run_id': 'ERR599832'},
         ]
         assert run_data[0:2] == fetch._filter_accessions_from_args(run_data, 'run_id')
-
-    def test_filter_accessions_from_existing_downloads_should_not_filter_as_no_file_present(self):
-        fetch = afr.FetchReads(argv=['-p', 'ERP001736'])
-        # Assert description file does not exist
-        with pytest.raises(FileNotFoundError):
-            fetch.read_project_description_file('ERP001736')
-        run_data = [
-            {'run_id': 'ERR599830'},
-            {'run_id': 'ERR599831'},
-            {'run_id': 'ERR599832'},
-        ]
-        assert run_data == fetch._filter_accessions_from_existing_downloads('ERP001736', run_data, 'ERR599083')
-
-    def test_filter_accessions_from_existing_downloads_should_filter_using_description_file(self, tmpdir):
-        tmpdir = str(tmpdir)
-        project_dir = os.path.join(FIXTURES_DIR, 'ERP003634')
-        shutil.copytree(project_dir, tmpdir + '/ERP003634')
-        fetch = afr.FetchReads(argv=['-p', 'ERP003634', '-d', tmpdir])
-        new_runs = [{'run_id': 'ERR315856'}]
-        assert new_runs == fetch._filter_accessions_from_existing_downloads('ERP003634', new_runs, 'run_id')
 
     def test_map_project_info_db_row_should_copy_fields(self):
         raw_data = {
