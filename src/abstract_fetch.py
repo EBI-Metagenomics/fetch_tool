@@ -7,7 +7,7 @@ import sys
 import argparse
 
 import copy
-from filelock import SoftFileLock
+from filelock import UnixFileLock
 from pandas.errors import EmptyDataError
 import pandas as pd
 import requests
@@ -229,8 +229,7 @@ class AbstractDataFetcher(ABC):
         if not os.path.isfile(download_file):
             self.create_empty_file(download_file)
 
-        download_file_lock = download_file + '.lock'
-        with SoftFileLock(download_file_lock):
+        with UnixFileLock(download_file):
             existing_rows = set(self.read_download_data(project_accession))
             existing_rows = existing_rows.union(set(new_download_rows))
             with open(download_file, 'w+') as f:
@@ -262,11 +261,10 @@ class AbstractDataFetcher(ABC):
         project_data = list(map(self.clean_data_row, new_rows))
 
         project_file = self.get_project_filepath(project_accession)
-        project_file_lock = project_file + '.lock'
         new_file = not os.path.isfile(project_file)
         if new_file:
             self.create_empty_file(project_file)
-        with SoftFileLock(project_file_lock):
+        with UnixFileLock(project_file):
             # Fallback in case empty file exists
             if not new_file:
                 try:
