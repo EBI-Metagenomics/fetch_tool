@@ -5,6 +5,7 @@ import os
 import logging
 import sys
 import argparse
+import re
 
 import copy
 from filelock import UnixFileLock
@@ -22,8 +23,10 @@ config_file = os.getenv('FETCH_TOOL_CONFIG',
 
 
 class AbstractDataFetcher(ABC):
-    DEFAULT_HEADERS = None
+    DEFAULT_HEADERS = ['study_id', 'sample_id', 'run_id', 'analysis_id', 'library_layout', 'library_strategy',
+                       'library_source', 'file', 'file_path']
     ACCESSION_FIELD = None
+    ACCESSION_REGEX = r'([EDS]R[RZS]\d+)'
 
     def __init__(self, argv=sys.argv[1:]):
         self.args = self._parse_args(argv)
@@ -38,6 +41,7 @@ class AbstractDataFetcher(ABC):
         self.interactive_mode = self.args.interactive
         self.private_mode = self.args.private
         self.force_mode = self.args.force
+        self.desc_file_only = self.args.fix_desc_file
 
         self.prod_user = os.environ.get('USER') == 'emgpr'
 
@@ -98,6 +102,7 @@ class AbstractDataFetcher(ABC):
         parser.add_argument('-i', '--interactive', help='interactive mode - allows you to skip failed downloads.',
                             action='store_true')
         parser.add_argument('-c', '--config-file', help='Alternative config file', default=config_file)
+        parser.add_argument('--fix-desc-file', help='Fixed runs in project description file', action='store_true')
         parser = self.add_arguments(parser)
         return parser.parse_args(argv)
 
@@ -151,8 +156,9 @@ class AbstractDataFetcher(ABC):
 
     def fetch_project(self, project_accession):
         new_data = self.retrieve_project(project_accession)
-        new_data = self.filter_by_accessions(new_data)
-        if len(new_data) == 0 and not self.force_mode:
+        if not self.desc_file_only and not self.force_mode:
+            new_data = self.filter_by_accessions(new_data)
+        if len(new_data) == 0:
             logging.warning('No new data found')
             return
         project_accession = new_data[0]['STUDY_ID']
@@ -161,7 +167,8 @@ class AbstractDataFetcher(ABC):
 
         self.write_project_files(project_accession, new_data)
 
-        self.download_raw_files(project_accession, new_data)
+        if not self.desc_file_only:
+            self.download_raw_files(project_accession, new_data)
 
     def retrieve_project(self, project_accession):
         if self.private_mode:
@@ -229,7 +236,8 @@ class AbstractDataFetcher(ABC):
         if not os.path.isfile(download_file):
             self.create_empty_file(download_file)
 
-        with UnixFileLock(download_file):
+        lock_file = download_file + '.lock'
+        with UnixFileLock(lock_file):
             existing_rows = set(self.read_download_data(project_accession))
             existing_rows = existing_rows.union(set(new_download_rows))
             with open(download_file, 'w+') as f:
@@ -257,30 +265,58 @@ class AbstractDataFetcher(ABC):
             clean_data[field] = ";".join(clean_data[field])
         return clean_data
 
-    def write_project_description_file(self, project_accession, new_rows, sort_column):
+    def get_downloaded_raw_file_accessions(self, project_accession):
+        raw_dir = self.get_project_rawdir(project_accession)
+        try:
+            files = filter(len, map(lambda r: re.findall(self.ACCESSION_REGEX, r), os.listdir(raw_dir)))
+            accessions = {f[0] for f in list(files)}
+        except FileNotFoundError:
+            accessions = set()
+        return accessions
+
+    def generate_expected_desc_data(self, project_accession, existing_data, project_data):
+        accessions = self.get_downloaded_raw_file_accessions(project_accession)
+        if 'run_id' in existing_data:
+            accessions = accessions.union(existing_data['run_id'].tolist())
+        if 'analysis_id' in existing_data:
+            accessions = accessions.union(existing_data['analysis_id'].tolist())
+
+        project_data = list(filter(lambda r: (r.get('run_id') or r['analysis_id']) in accessions, project_data))
+        return project_data
+
+    @staticmethod
+    def remove_project_desc_duplicates(df):
+        return df.assign(counts=df.count(axis=1)) \
+            .sort_values(by=['run_id', 'analysis_id']) \
+            .drop_duplicates(subset=['run_id', 'analysis_id'], keep='last')
+
+    def add_missing_headers(self, df):
+        for h in self.DEFAULT_HEADERS:
+            if h not in df:
+                df[h] = None
+        return df
+
+    def write_project_description_file(self, project_accession, new_rows):
         project_data = list(map(self.clean_data_row, new_rows))
 
         project_file = self.get_project_filepath(project_accession)
-        new_file = not os.path.isfile(project_file)
-        if new_file:
-            self.create_empty_file(project_file)
-        with UnixFileLock(project_file):
+
+        lock_file = project_file + '.lock'
+        with UnixFileLock(lock_file):
             # Fallback in case empty file exists
-            if not new_file:
-                try:
-                    project_runs = self.read_project_description_file(project_accession)
-                except EmptyDataError:
-                    new_file = True
-
-            if new_file:
+            try:
+                project_runs = self.read_project_description_file(project_accession)
+            except (EmptyDataError, FileNotFoundError):
                 project_runs = pd.DataFrame(project_data)
-                headers = self.DEFAULT_HEADERS
-            else:
-                headers = list(project_runs.columns.values)
-                project_runs = project_runs.append(project_data, sort=True)
-                project_runs = project_runs.drop_duplicates(subset=sort_column)
+            headers = self.DEFAULT_HEADERS
 
-            project_runs = project_runs.fillna('n/a').sort_values(by=sort_column)
+            if self.desc_file_only:
+                project_data = self.generate_expected_desc_data(project_accession, project_runs, project_data)
+            project_runs = project_runs.append(project_data, sort=True)
+            project_runs = self.add_missing_headers(project_runs)
+            project_runs = self.remove_project_desc_duplicates(project_runs)
+
+            project_runs = project_runs.fillna('n/a').sort_values(by=['run_id', 'analysis_id'])
             project_runs.to_csv(project_file, sep='\t', index=False, columns=headers)
 
     def get_api_credentials(self):
@@ -493,8 +529,9 @@ class AbstractDataFetcher(ABC):
 
     def write_project_files(self, project_accession, new_runs):
         new_run_rows = list(map(self.map_project_info_db_row, new_runs))
-        self.write_project_description_file(project_accession, new_run_rows, self.ACCESSION_FIELD.lower())
-        self.write_project_download_file(project_accession, new_run_rows)
+        self.write_project_description_file(project_accession, new_run_rows)
+        if not self.desc_file_only:
+            self.write_project_download_file(project_accession, new_run_rows)
 
 
 def silentremove(filename):

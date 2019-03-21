@@ -8,12 +8,9 @@ path_re = re.compile(r'(.*)/(.*)')
 
 
 class FetchReads(AbstractDataFetcher):
-    DEFAULT_HEADERS = ['study_id', 'sample_id', 'run_id', 'library_layout', 'file', 'file_path', 'tax_id',
-                       'scientific_name', 'library_strategy', 'library_source']
-
     ENA_PROJECT_URL = 'http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession={0}&result=read_run&' \
                       'fields=study_accession,secondary_study_accession,sample_accession,secondary_sample_accession,' \
-                      'experiment_accession,run_accession,tax_id,scientific_name,instrument_model,library_layout,' \
+                      'experiment_accession,run_accession,instrument_model,library_layout,' \
                       'fastq_ftp,fastq_md5,submitted_ftp,submitted_md5,library_strategy,broker_name,library_source&' \
                       'download=txt'
 
@@ -70,8 +67,6 @@ class FetchReads(AbstractDataFetcher):
             'library_layout': run['LIBRARY_LAYOUT'],
             'file': run['file'],
             'file_path': run['DATA_FILE_PATH'],
-            'tax_id': run['TAX_ID'],
-            'scientific_name': 'n/a',
             'library_strategy': run['LIBRARY_STRATEGY'],
             'library_source': run['LIBRARY_SOURCE']
         }
@@ -124,7 +119,6 @@ class FetchReads(AbstractDataFetcher):
                                                                                              is_submitted_file)
         for key in ('fastq_ftp', 'submitted_ftp', 'fastq_md5', 'submitted_md5'):
             del rundata[key]
-        rundata['TAX_ID'] = rundata.pop('tax_id')
         rundata['LIBRARY_STRATEGY'] = rundata.pop('library_strategy')
         rundata['LIBRARY_SOURCE'] = rundata.pop('library_source')
         rundata['LIBRARY_LAYOUT'] = rundata.pop('library_layout')

@@ -15,7 +15,7 @@ class TestFetchAssemblies:
 
         args = fetch.args
         accepted_args = {'projects', 'project_list', 'dir', 'verbose', 'force',
-                         'private', 'interactive', 'config_file', 'assemblies', 'assembly_list'}
+                         'private', 'interactive', 'config_file', 'assemblies', 'assembly_list', 'fix_desc_file'}
         assert set(vars(args)) == accepted_args
 
     def test_validate_args_should_raise_exception_as_no_data_specified(self):

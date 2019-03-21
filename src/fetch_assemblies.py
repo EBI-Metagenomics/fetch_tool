@@ -13,9 +13,12 @@ path_re = re.compile(r'(.*)/(.*)')
 
 
 class FetchAssemblies(AbstractDataFetcher):
-    DEFAULT_HEADERS = ['study_id', 'sample_id', 'analysis_id', 'file', 'file_path']
-
-    ENA_PROJECT_URL = 'http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession={0}&result=analysis&fields=analysis_accession,study_accession,secondary_study_accession,sample_accession,secondary_sample_accession,analysis_title,analysis_type,center_name,first_public,last_updated,study_title,analysis_alias,study_alias,submitted_md5,submitted_ftp,sample_alias,broker_name,sample_title&download=txt'
+    ENA_PROJECT_URL = 'http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession={0}' \
+                      '&result=analysis' \
+                      '&fields=analysis_accession,study_accession,secondary_study_accession,sample_accession,' \
+                      'secondary_sample_accession,analysis_title,analysis_type,center_name,first_public,' \
+                      'last_updated,study_title,analysis_alias,study_alias,submitted_md5,submitted_ftp,' \
+                      'sample_alias,broker_name,sample_title&download=txt'
 
     def __init__(self, argv=None):
         self.ACCESSION_FIELD = 'ANALYSIS_ID'
@@ -91,7 +94,6 @@ class FetchAssemblies(AbstractDataFetcher):
         # Get all generated study data from ENA
         metadata_analyses = self._get_assembly_metadata(project_accession)
         project_acc = metadata_analyses[0]['PROJECT_ID']
-
         wgs_analyses = self._get_study_wgs_analyses(project_acc)
 
         study_analyses = self._combine_analyses(metadata_analyses, wgs_analyses)

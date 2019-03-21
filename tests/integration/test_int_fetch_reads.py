@@ -36,12 +36,13 @@ def validate_full_study(tmpdir):
     study_file = os.path.join(study_dir, study_id + '.txt')
     with open(study_file) as f:
         study_data = f.readlines()
-    assert study_data[0] == 'study_id\tsample_id\trun_id\tlibrary_layout\tfile\tfile_path\ttax_id\t' \
-                            'scientific_name\tlibrary_strategy\tlibrary_source\n'
-    assert study_data[1] == 'ERP110686\tERS2702567\tERR2777789\tSINGLE\tERR2777789.fasta.gz\t' \
+    assert study_data[0].split('\t') == \
+           ['study_id', 'sample_id', 'run_id', 'analysis_id', 'library_layout',
+            'library_strategy', 'library_source', 'file', 'file_path']
+    assert study_data[1] == 'ERP110686\tERS2702567\tERR2777789\t\tSINGLE\tERR2777789.fasta.gz\t' \
                             'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz\t' \
                             '256318\tn/a\tAMPLICON\tMETAGENOMIC\n'
-    assert study_data[2] == 'ERP110686\tERS2702568\tERR2777790\tSINGLE\tERR2777790.fasta.gz\t' \
+    assert study_data[2] == 'ERP110686\tERS2702568\tERR2777790\t\tSINGLE\tERR2777790.fasta.gz\t' \
                             'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777790/140211.050.upload.fna.trim.gz\t' \
                             '256318\tn/a\tAMPLICON\tMETAGENOMIC\n'
 
@@ -64,9 +65,10 @@ def validate_single_study_run(tmpdir):
     study_file = os.path.join(study_dir, study_id + '.txt')
     with open(study_file) as f:
         study_data = f.readlines()
-    assert study_data[0] == 'study_id\tsample_id\trun_id\tlibrary_layout\tfile\tfile_path\ttax_id\t' \
-                            'scientific_name\tlibrary_strategy\tlibrary_source\n'
-    assert study_data[1] == 'ERP110686\tERS2702567\tERR2777789\tSINGLE\tERR2777789.fasta.gz\t' \
+    assert study_data[0].split('\t') == \
+           ['study_id', 'sample_id', 'run_id', 'analysis_id', 'library_layout',
+            'library_strategy', 'library_source', 'file', 'file_path']
+    assert study_data[1] == 'ERP110686\tERS2702567\tERR2777789\t\tSINGLE\tERR2777789.fasta.gz\t' \
                             'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz\t' \
                             '256318\tn/a\tAMPLICON\tMETAGENOMIC\n'
 

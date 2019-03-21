@@ -18,9 +18,9 @@ class TestFetchReads:
         fetch = afr.FetchReads(argv=['-p', 'ERP001736'])
 
         args = fetch.args
-        accepted_args = ['projects', 'project_list', 'dir', 'verbose', 'force',
-                         'private', 'interactive', 'config_file', 'runs', 'run_list']
-        assert all([hasattr(args, argname) for argname in accepted_args])
+        accepted_args = {'projects', 'project_list', 'dir', 'verbose', 'force',
+                         'private', 'interactive', 'config_file', 'runs', 'run_list', 'fix_desc_file'}
+        assert set(vars(args)) == accepted_args
 
     def test_validate_args_should_raise_exception_as_no_data_specified(self):
         with pytest.raises(ValueError):
@@ -100,7 +100,6 @@ class TestFetchReads:
             'SAMPLE_ID': 'ERS599830',
             'RUN_ID': 'ERR599830',
             'LIBRARY_LAYOUT': 'PAIRED',
-            'TAX_ID': '1231',
             'LIBRARY_SOURCE': 'METAGENOMIC',
             'LIBRARY_STRATEGY': 'WGS',
             'file': 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz',
@@ -125,7 +124,6 @@ class TestFetchReads:
             'SAMPLE_ID': 'ERS599830',
             'RUN_ID': 'ERR599830',
             'LIBRARY_LAYOUT': 'PAIRED',
-            'TAX_ID': '1231',
             'LIBRARY_SOURCE': 'METAGENOMIC',
             'LIBRARY_STRATEGY': 'WGS',
             'file': 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz',
@@ -177,7 +175,6 @@ class TestFetchReads:
             'secondary_study_accession': 'ERP001736',
             'secondary_sample_accession': 'ERS599830',
             'run_accession': 'ERR599830',
-            'tax_id': '1231',
             'library_source': 'METAGENOMIC',
             'library_strategy': 'WGS',
             'library_layout': 'PAIRED',
@@ -191,7 +188,6 @@ class TestFetchReads:
             'STUDY_ID': raw_data['secondary_study_accession'],
             'SAMPLE_ID': raw_data['secondary_sample_accession'],
             'RUN_ID': raw_data['run_accession'],
-            'TAX_ID': raw_data['tax_id'],
             'LIBRARY_SOURCE': raw_data['library_source'],
             'LIBRARY_STRATEGY': raw_data['library_strategy'],
             'LIBRARY_LAYOUT': raw_data['library_layout'],
@@ -208,18 +204,18 @@ class TestFetchReads:
 
     def mock_db_response_generated_data(self, *args, **kwargs):
         return [{'STUDY_ID': 'ERP113309', 'SAMPLE_ID': 'ERS3033973', 'RUN_ID': 'ERR3063510', 'LIBRARY_LAYOUT': 'SINGLE',
-                 'DATA_FILE_PATH': 'fastq/ERR306/000/ERR3063510/ERR3063510.fastq.gz', 'TAX_ID': '256318',
+                 'DATA_FILE_PATH': 'fastq/ERR306/000/ERR3063510/ERR3063510.fastq.gz',
                  'LIBRARY_STRATEGY': 'WGS', 'LIBRARY_SOURCE': 'GENOMIC', 'DATA_FILE_ROLE': 'GENERATED_FILE',
                  'MD5': '2cb9441bbc157d76286b385fd0b7f0c4'},
                 {'STUDY_ID': 'ERP113309', 'SAMPLE_ID': 'ERS3042514', 'RUN_ID': 'ERR3086151', 'LIBRARY_LAYOUT': 'SINGLE',
-                 'DATA_FILE_PATH': 'fastq/ERR308/001/ERR3086151/ERR3086151.fastq.gz', 'TAX_ID': '256318',
+                 'DATA_FILE_PATH': 'fastq/ERR308/001/ERR3086151/ERR3086151.fastq.gz',
                  'LIBRARY_STRATEGY': 'WGS', 'LIBRARY_SOURCE': 'GENOMIC', 'DATA_FILE_ROLE': 'GENERATED_FILE',
                  'MD5': '899eb5ab522ebc2c98bc567f3c3ad7d8'}
                 ]
 
     def mock_db_response_submitted_data(self, *args, **kwargs):
         return [{'STUDY_ID': 'ERP113309', 'SAMPLE_ID': 'ERS3042515', 'RUN_ID': 'ERR3086152', 'LIBRARY_LAYOUT': 'SINGLE',
-                 'DATA_FILE_PATH': 'fastq/ERR308/001/ERR3086151/ERR3086151.fastq.gz', 'TAX_ID': '256318',
+                 'DATA_FILE_PATH': 'fastq/ERR308/001/ERR3086151/ERR3086151.fastq.gz',
                  'LIBRARY_STRATEGY': 'WGS', 'LIBRARY_SOURCE': 'GENOMIC', 'DATA_FILE_ROLE': 'SUBMITTED_FILE',
                  'MD5': '899eb5ab522ebc2c98bc567f3c3ad7d8'}]
 
@@ -272,11 +268,11 @@ class TestFetchReads:
         os.makedirs(project_dir)
         run_data = [
             {'study_accession': 'PRJEB28479', 'sample_accession': 'SAMEA4883561', 'experiment_accession': 'ERX2789866',
-             'scientific_name': 'metagenome', 'instrument_model': 'unspecified', 'broker_name': 'MGRAST',
+             'instrument_model': 'unspecified', 'broker_name': 'MGRAST',
              'STUDY_ID': 'ERP110686', 'SAMPLE_ID': 'ERS2702567', 'RUN_ID': 'ERR2777789',
              'DATA_FILE_ROLE': 'SUBMISSION_FILE',
              'DATA_FILE_PATH': ('ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz',),
-             'file': ['ERR2777789.fasta.gz'], 'MD5': ('7935d13d964cc6bc5038f7706ec3e1c4',), 'TAX_ID': '256318',
+             'file': ['ERR2777789.fasta.gz'], 'MD5': ('7935d13d964cc6bc5038f7706ec3e1c4',),
              'LIBRARY_STRATEGY': 'AMPLICON', 'LIBRARY_SOURCE': 'METAGENOMIC', 'LIBRARY_LAYOUT': 'SINGLE'}]
         fetch = afr.FetchReads(argv=['-p', study_accession, '-ru', 'ERR2777789', '-d', tmpdir])
         fetch.write_project_files(study_accession, run_data)
@@ -285,9 +281,9 @@ class TestFetchReads:
             data = f.readlines()
         assert len(data) == 2
         assert data[0] == '\t'.join(afr.FetchReads.DEFAULT_HEADERS) + '\n'
-        assert data[1] == 'ERP110686	ERS2702567	ERR2777789	SINGLE	ERR2777789.fasta.gz	' \
-                          'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz	' \
-                          '256318	n/a	AMPLICON	METAGENOMIC\n'
+        assert data[1] == 'ERP110686	ERS2702567	ERR2777789	n/a	SINGLE	AMPLICON	METAGENOMIC	' \
+                          'ERR2777789.fasta.gz	' \
+                          'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz\n'
         download_file = os.path.join(project_dir, 'download')
         with open(download_file) as f:
             download_data = f.readlines()
