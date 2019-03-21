@@ -25,7 +25,7 @@ class ENADAO(object):
         :return:
         """
 
-        query = "SELECT project_acc, sample_id, assembly_id, wgs_acc, gc_id, contig_cnt from gcs_assembly where project_acc = '{}'".format(
+        query = "SELECT project_acc, sample_id, assembly_id, wgs_acc, gc_id, contig_cnt from gcs_assembly where project_acc = '{}' AND CANCELLED IS NULL".format(
             project_id)
         return self.data_access_object._runQuery(query)
 

@@ -152,6 +152,7 @@ class FetchAssemblies(AbstractDataFetcher):
 
     def _retrieve_project_info_ftp(self, project_accession):
         data = self._retrieve_ena_url(self.ENA_PROJECT_URL.format(project_accession))
+        data = [d for d in data if d['analysis_type'] == 'SEQUENCE_ASSEMBLY']
         insertable_assemblies = self._filter_ftp_broker_names(data)
         return list(map(self.map_datafields_ftp_2_db, insertable_assemblies))
 
