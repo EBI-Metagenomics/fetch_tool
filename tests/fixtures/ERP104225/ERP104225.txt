@@ -1,0 +1,4 @@
+study_id	sample_id	analysis_id	files	file_path
+ERP104225	SRS591962	ERZ477682	ERZ477682.fasta.gz	ftp.sra.ebi.ac.uk/vol1/ERZ477/ERZ477682/SRR1238172.fasta.gz
+ERP104225	SRS591965	ERZ477683	ERZ477683.fasta.gz	ftp.sra.ebi.ac.uk/vol1/ERZ477/ERZ477683/SRR1238319.fasta.gz
+ERP104225	SRS591976	ERZ477684	ERZ477684.fasta.gz	ftp.sra.ebi.ac.uk/vol1/ERZ477/ERZ477684/SRR1238351.fasta.gz

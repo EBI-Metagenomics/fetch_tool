@@ -6,7 +6,7 @@ _base = os.path.dirname(os.path.abspath(__file__))
 _requirements = os.path.join(_base, 'requirements.txt')
 _requirements_test = os.path.join(_base, 'requirements-test.txt')
 
-version = '0.2.4'
+version = '0.5.2'
 
 install_requirements = []
 with open(_requirements) as f:
@@ -21,7 +21,7 @@ setup(name='fetch-tool',
       version=version,
       description='Utility to fetch public and private RAW read and assembly '
                   'files from the ENA',
-      author='Maxim Scheremetjew',
+      author='Maxim Scheremetjew, Miguel Boland',
       url='https://github.com/EBI-Metagenomics/fetch_tool',
       packages=find_packages(),
       install_requires=install_requirements,
