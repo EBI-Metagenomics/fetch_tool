@@ -19,7 +19,7 @@ class TestFetchReads:
 
         args = fetch.args
         accepted_args = {'projects', 'project_list', 'dir', 'verbose', 'force',
-                         'private', 'interactive', 'config_file', 'runs', 'run_list', 'fix_desc_file'}
+                         'private', 'interactive', 'config_file', 'runs', 'run_list', 'fix_desc_file', 'ignore_errors'}
         assert set(vars(args)) == accepted_args
 
     def test_validate_args_should_raise_exception_as_no_data_specified(self):

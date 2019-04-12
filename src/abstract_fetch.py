@@ -42,6 +42,7 @@ class AbstractDataFetcher(ABC):
         self.private_mode = self.args.private
         self.force_mode = self.args.force
         self.desc_file_only = self.args.fix_desc_file
+        self.ignore_errors = self.args.ignore_errors
 
         self.prod_user = os.environ.get('USER') == 'emgpr'
 
@@ -97,7 +98,9 @@ class AbstractDataFetcher(ABC):
         project_args.add_argument("-l", "--project-list", help="File containing line-separated project list")
         parser.add_argument('-d', '--dir', help='Base directory for downloads', default=os.getcwd())
         parser.add_argument('-v', '--verbose', help='Verbose', action='count')
-        parser.add_argument('-f', '--force', help='Force', action='store_true')
+        parser.add_argument('-f', '--force', help='Ignore download errors and force re-download all files',
+                            action='store_true')
+        parser.add_argument('--ignore-errors', help='Ignore download errors and continue', action='store_true')
         parser.add_argument('--private', help='Use when fetching private data', action='store_true')
         parser.add_argument('-i', '--interactive', help='interactive mode - allows you to skip failed downloads.',
                             action='store_true')
@@ -193,18 +196,30 @@ class AbstractDataFetcher(ABC):
             Returns true if file was re-downloaded
         """
         filename = os.path.basename(dest)
+        file_downloaded = False
         if not self._is_file_valid(dest, dl_md5s) or self.force_mode:
             silentremove(dest)
-            if self.private_mode:
-                self.download_dcc(dest, dl_file)
-            else:
-                self.download_ftp(dest, dl_file)
-            file_downloaded = True
+            try:
+                if self.private_mode:
+                    self.download_dcc(dest, dl_file)
+                else:
+                    self.download_ftp(dest, dl_file)
+                file_downloaded = True
+            except Exception as e:
+                if self.ignore_errors:
+                    logging.warning(e)
+                else:
+                    raise e
         else:
             logging.info('File {} already exists, skipping download'.format(filename))
-            file_downloaded = False
+
         if not self._is_file_valid(dest, dl_md5s):
-            raise EnvironmentError('MD5 of downloaded file {} does not match expected MD5'.format(filename))
+            msg = 'MD5 of downloaded file {} does not match expected MD5'.format(filename)
+            if self.ignore_errors:
+                logging.error(msg)
+            else:
+                raise EnvironmentError(msg)
+
         return file_downloaded
 
     def get_project_workdir(self, project_accession):
@@ -460,10 +475,7 @@ class AbstractDataFetcher(ABC):
                                         'and move onto the next sequence!')
                         break
                     else:
-                        logging.warning(
-                            'Too many failed attempts. Program will exit now.' +
-                            ' Try again to fetch the data in interactive mode (-i option)!')
-                        sys.exit(1)
+                        raise EnvironmentError('Too many failed attempts. Program will exit now.')
             attempt += 1
 
     def download_ftp(self, dest, url):
