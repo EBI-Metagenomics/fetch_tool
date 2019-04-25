@@ -16,11 +16,11 @@ install:
 script:
   - pytest -s -vv tests/$TEST_SUITE/
 
-after_success:
-  - docker build -t mgnify/fetch_tool .
-
+# Only build and deploy docker container once per push
 deploy:
   provider: script
   script: bash docker_push
   on:
     branch: master
+    python: 3.6
+    condition: $TEST_SUITE=unit
