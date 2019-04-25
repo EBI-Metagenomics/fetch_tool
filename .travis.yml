@@ -6,9 +6,21 @@ env:
   - TEST_SUITE=integration
   - TEST_SUITE=unit
 
+services:
+  - docker
+
 install:
   - python setup.py install
   - pip install -r requirements-test.txt
 
 script:
   - pytest -s -vv tests/$TEST_SUITE/
+
+deploy:
+  provider: script
+  script: bash docker_push
+  on:
+    branch: master
+
+after_success:
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
