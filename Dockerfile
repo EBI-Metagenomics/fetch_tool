@@ -7,9 +7,9 @@ LABEL maintainer="Miguel Boland <mdb@ebi.ac.uk>"
 
 # Python build dependencies
 
-COPY src /
+COPY src /src
 COPY setup.py /
 COPY requirements.txt /
 COPY __init__.py /
 
-RUN pip install -r requirements.txt
+RUN pip install .

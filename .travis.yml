@@ -21,6 +21,6 @@ deploy:
   provider: script
   script: bash docker_push
   on:
-    branch: master
+    branch: docker
     python: 3.6
     condition: $TEST_SUITE=unit
