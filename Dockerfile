@@ -12,4 +12,5 @@ COPY setup.py /
 COPY requirements.txt /
 COPY __init__.py /
 
-RUN pip install .
+RUN pip install -r requirements.txt
+RUN pip --no-cache-dir -v install .

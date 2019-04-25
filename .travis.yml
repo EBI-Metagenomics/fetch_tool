@@ -19,7 +19,7 @@ script:
 # Only build and deploy docker container once per push
 deploy:
   provider: script
-  script: bash docker_push
+  script: bash ./docker_push.sh
   on:
     branch: docker
     python: 3.6
