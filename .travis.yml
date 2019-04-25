@@ -19,8 +19,8 @@ script:
 # Only build and deploy docker container once per push
 deploy:
   provider: script
-  script: bash ./docker_push.sh
+  script: bash ./docker_trigger_build.sh
   on:
     branch: docker
     python: 3.6
-    condition: $TEST_SUITE=unit
+    condition: "$TEST_SUITE = unit"
