@@ -16,11 +16,11 @@ install:
 script:
   - pytest -s -vv tests/$TEST_SUITE/
 
+after_success:
+  - docker build -t mgnify/fetch_tool .
+
 deploy:
   provider: script
   script: bash docker_push
   on:
     branch: master
-
-after_success:
-  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
