@@ -21,6 +21,6 @@ deploy:
   provider: script
   script: bash ./docker_trigger_build.sh
   on:
-    branch: docker
+    branch: master
     python: 3.6
     condition: "$TEST_SUITE = unit"
