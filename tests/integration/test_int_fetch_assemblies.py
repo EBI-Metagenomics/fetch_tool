@@ -27,7 +27,7 @@ class WorkingDir:
         os.chdir(self.prev_dir)
 
 
-study_id = 'ERP104225'
+study_id = 'ERP111374'
 
 
 def validate_full_study(tmpdir):
@@ -36,23 +36,23 @@ def validate_full_study(tmpdir):
     study_file = os.path.join(study_dir, study_id + '.txt')
     with open(study_file) as f:
         study_data = f.readlines()
-    assert study_data[0] == 'study_id\tsample_id\tanalysis_id\tfile\tfile_path\n'
-    assert study_data[1] == 'ERP104225\tSRS591962\tERZ477682\tERZ477682.fasta.gz\t' \
-                            'ftp.sra.ebi.ac.uk/vol1/ERZ477/ERZ477682/SRR1238172.fasta.gz\n'
-    assert study_data[2] == 'ERP104225\tSRS591965\tERZ477683\tERZ477683.fasta.gz\t' \
-                            'ftp.sra.ebi.ac.uk/vol1/ERZ477/ERZ477683/SRR1238319.fasta.gz\n'
-    assert study_data[3] == 'ERP104225\tSRS591976\tERZ477684\tERZ477684.fasta.gz\t' \
-                            'ftp.sra.ebi.ac.uk/vol1/ERZ477/ERZ477684/SRR1238351.fasta.gz\n'
-    assert study_data[4] == 'ERP104225\tSRS591979\tERZ477685\tERZ477685.fasta.gz\t' \
-                            'ftp.sra.ebi.ac.uk/vol1/ERZ477/ERZ477685/SRR1238384.fasta.gz\n'
+
+    assert study_data[0].strip().split('\t') == \
+        ['study_id', 'sample_id', 'run_id', 'analysis_id', 'library_layout',
+         'library_strategy', 'library_source', 'file', 'file_path']
+    assert study_data[1].strip() == 'ERP111374\tSRS2137356\tn/a\tERZ773362\tn/a\tn/a\tn/a\tERZ773362.fasta.gz\t' \
+                            'ftp.sra.ebi.ac.uk/vol1/ERZ773/ERZ773362/SRR5465818.fasta.gz'
+
+    assert study_data[2].strip() == 'ERP111374\tSRS2137355\tn/a\tERZ773363\tn/a\tn/a\tn/a\tERZ773363.fasta.gz\t' \
+                            'ftp.sra.ebi.ac.uk/vol1/ERZ773/ERZ773363/SRR5465817.fasta.gz'
 
     download_file = os.path.join(study_dir, 'download')
     with open(download_file) as f:
         download_data = f.readlines()
-    assert len(download_data) == 4
+    assert len(download_data) == 2
 
     raw_dir = os.path.join(study_dir, 'raw')
-    expected_file = ['ERZ477682.fasta.gz', 'ERZ477683.fasta.gz', 'ERZ477684.fasta.gz', 'ERZ477685.fasta.gz', ]
+    expected_file = ['ERZ773362.fasta.gz', 'ERZ773363.fasta.gz']
     for f in expected_file:
         f_path = os.path.join(raw_dir, f)
         assert os.path.getsize(f_path) > 0
