@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/EBI-Metagenomics/fetch_tool.svg?token=Fx66TMEyQXwD4SBCCvpz&branch=master)](https://travis-ci.com/EBI-Metagenomics/fetch_tool)
+
 Set of tools which allows you to fetch RAW read and assembly files from the European Nucleotide Archive (ENA).
 
 
