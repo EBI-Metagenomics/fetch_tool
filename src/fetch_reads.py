@@ -87,9 +87,10 @@ class FetchReads(AbstractDataFetcher):
             existing_accessions = self._get_study_run_accessions(study_run_data)
             study_run_data.extend([f for f in submitted_files if f['RUN_ID'] not in existing_accessions])
         else:
-            broker = self.study_brokers[project_accession]
-            logging.debug('Study {} does not have a trusted broker ({}), submitted_ftp files will be ignored'.format(
-                project_accession, broker))
+            broker = None if project_accession not in self.study_brokers else self.study_brokers.get(project_accession)
+            logging.debug(
+                'Study {} does not come from a trusted broker ({}). Submitted_ftp files will be ignored'.format(
+                    project_accession, broker))
         for data in study_run_data:
             is_submitted_file = data['DATA_FILE_ROLE'] == 'SUBMITTED_FILE'
             data['DATA_FILE_PATH'], data['file'], data['MD5'] = self._get_raw_filenames(data['DATA_FILE_PATH'],

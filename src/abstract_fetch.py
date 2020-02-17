@@ -48,6 +48,7 @@ class AbstractDataFetcher(ABC):
 
         self._process_additional_args()
         self.projects = self.args.projects
+        self.sanity_check_project_accessions()
         self.project_accessions = self._get_project_accessions(self.args)
 
         if self.args.private:
@@ -94,7 +95,8 @@ class AbstractDataFetcher(ABC):
     def _parse_args(self, argv):
         parser = argparse.ArgumentParser()
         project_args = parser.add_mutually_exclusive_group()
-        project_args.add_argument('-p', '--projects', help='Project accession(s)', nargs='+')
+        project_args.add_argument('-p', '--projects', help='Whitespace separated list of project accession(s)',
+                                  nargs='+')
         project_args.add_argument("-l", "--project-list", help="File containing line-separated project list")
         parser.add_argument('-d', '--dir', help='Base directory for downloads', default=os.getcwd())
         parser.add_argument('-v', '--verbose', help='Verbose', action='count')
@@ -344,6 +346,7 @@ class AbstractDataFetcher(ABC):
         return
 
     def _get_studies_brokers(self, study_accessions):
+        logging.info("Retrieving study broker name for study {}...".format(study_accessions))
         headers = {'Accept': '*/*',
                    'Content-Type': 'application/x-www-form-urlencoded'}
         data = {
@@ -358,14 +361,19 @@ class AbstractDataFetcher(ABC):
                           auth=(self.config['enaAPIUsername'], self.config['enaAPIPassword']))
 
         if r.status_code != 200:
-            raise ValueError(r.text)
-        json_data = r.json()
-
-        return {d['secondary_study_accession']: d['broker_name'] for d in json_data}
+            logging.warning(
+                "Could NOT retrieve study broker name using the ENA Portal API! Got response code {}".format(
+                    r.status_code))
+            logging.warning("Possible reasons for that could be:\n - private study is"
+                            " not indexed yet\n - study is not labelled as metagenome study ")
+            return {acc: '' for acc in study_accessions}
+        else:
+            json_data = r.json()
+            return {d['secondary_study_accession']: d['broker_name'] for d in json_data}
 
     def _study_has_permitted_broker(self, study_accession):
-        broker = self.study_brokers[study_accession]
-        return broker == '' or broker in self.config['trustedBrokers']
+        broker = None if study_accession not in self.study_brokers else self.study_brokers.get(study_accession)
+        return broker and broker != '' and broker in self.config['trustedBrokers']
 
     def _is_rawdata_filetype(self, filename):
         return any(x in filename for x in ['.fa', '.fna', '.fasta', '.fq', 'fastq'])
@@ -544,6 +552,21 @@ class AbstractDataFetcher(ABC):
         self.write_project_description_file(project_accession, new_run_rows)
         if not self.desc_file_only:
             self.write_project_download_file(project_accession, new_run_rows)
+
+    @staticmethod
+    def is_study_accession(accession):
+        study_accssion_re = r'([ESD]RP\d{6,})'
+        match = re.match(study_accssion_re, accession)
+        if match and len(match.group(0)) == len(accession):
+            return True
+        return False
+
+    def sanity_check_project_accessions(self):
+        for study_acc in self.projects:
+            if not self.is_study_accession(study_acc):
+                logging.error("Encountered an invalid study accession: {}".format(study_acc))
+                logging.info("Program will exit now!")
+                sys.exit(1)
 
 
 def silentremove(filename):
