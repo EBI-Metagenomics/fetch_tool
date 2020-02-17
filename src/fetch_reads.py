@@ -1,5 +1,6 @@
 import re
 import logging
+from operator import itemgetter
 from src.ERADAO import ERADAO
 
 from src.abstract_fetch import AbstractDataFetcher
@@ -123,6 +124,17 @@ class FetchReads(AbstractDataFetcher):
         rundata['LIBRARY_SOURCE'] = rundata.pop('library_source')
         rundata['LIBRARY_LAYOUT'] = rundata.pop('library_layout')
         return rundata
+
+    def _filter_secondary_files(self, joined_file_names, md5s):
+        filtered_file_names, filtered_md5s = super()._filter_secondary_files(joined_file_names, md5s)
+        # Case to remove runs with 3 fastq files => keep only _1 and _2
+        if len(filtered_file_names) == 3:
+            keep_files = ['_' in f for f in filtered_file_names]
+            indexes = [i for i, x in enumerate(keep_files) if x]
+            filtered_file_names = itemgetter(*indexes)(filtered_file_names)
+            filtered_md5s = itemgetter(*indexes)(filtered_md5s)
+
+        return filtered_file_names, filtered_md5s
 
     def _retrieve_project_info_ftp(self, project_accession):
         data = self._retrieve_ena_url(self.ENA_PROJECT_URL.format(project_accession))

@@ -176,9 +176,9 @@ class TestFetchAssemblies:
         }
 
     def test_retrieve_project_info_ftp_should_fetch_all_assemblies(self, tmpdir):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225', '-d', str(tmpdir)])
-        assemblies = fetch._retrieve_project_info_ftp('ERP104225')
-        assert len(assemblies) == 4
+        fetch = afa.FetchAssemblies(argv=['-p', 'ERP112670', '-d', str(tmpdir)])
+        assemblies = fetch._retrieve_project_info_ftp('ERP112670')
+        assert len(assemblies) == 3
 
     def mock_get_assembly_metadata(self, *args, **kwargs):
         return [

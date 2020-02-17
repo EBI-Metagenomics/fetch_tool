@@ -36,15 +36,11 @@ def validate_full_study(tmpdir):
     study_file = os.path.join(study_dir, study_id + '.txt')
     with open(study_file) as f:
         study_data = f.readlines()
-    assert study_data[0].split('\t') == \
+    assert study_data[0].strip().split('\t') == \
            ['study_id', 'sample_id', 'run_id', 'analysis_id', 'library_layout',
             'library_strategy', 'library_source', 'file', 'file_path']
-    assert study_data[1] == 'ERP110686\tERS2702567\tERR2777789\t\tSINGLE\tERR2777789.fasta.gz\t' \
-                            'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz\t' \
-                            '256318\tn/a\tAMPLICON\tMETAGENOMIC\n'
-    assert study_data[2] == 'ERP110686\tERS2702568\tERR2777790\t\tSINGLE\tERR2777790.fasta.gz\t' \
-                            'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777790/140211.050.upload.fna.trim.gz\t' \
-                            '256318\tn/a\tAMPLICON\tMETAGENOMIC\n'
+    assert study_data[1] == 'ERP110686\tERS2702567\tERR2777789\tn/a\tSINGLE\tAMPLICON\tMETAGENOMIC\tERR2777789.fasta.gz\tftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz\n'
+    assert study_data[2] == 'ERP110686\tERS2702568\tERR2777790\tn/a\tSINGLE\tAMPLICON\tMETAGENOMIC\tERR2777790.fasta.gz\tftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777790/140211.050.upload.fna.trim.gz\n'
 
     download_file = os.path.join(study_dir, 'download')
     with open(download_file) as f:
@@ -65,12 +61,10 @@ def validate_single_study_run(tmpdir):
     study_file = os.path.join(study_dir, study_id + '.txt')
     with open(study_file) as f:
         study_data = f.readlines()
-    assert study_data[0].split('\t') == \
+    assert study_data[0].strip().split('\t') == \
            ['study_id', 'sample_id', 'run_id', 'analysis_id', 'library_layout',
             'library_strategy', 'library_source', 'file', 'file_path']
-    assert study_data[1] == 'ERP110686\tERS2702567\tERR2777789\t\tSINGLE\tERR2777789.fasta.gz\t' \
-                            'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz\t' \
-                            '256318\tn/a\tAMPLICON\tMETAGENOMIC\n'
+    assert study_data[1] == 'ERP110686\tERS2702567\tERR2777789\tn/a\tSINGLE\tAMPLICON\tMETAGENOMIC\tERR2777789.fasta.gz\tftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz\n'
 
     download_file = os.path.join(study_dir, 'download')
     with open(download_file) as f:
