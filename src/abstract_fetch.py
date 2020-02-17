@@ -556,8 +556,8 @@ class AbstractDataFetcher(ABC):
     @staticmethod
     def is_study_accession(accession):
         study_accssion_re = r'([ESD]RP\d{6,})'
-        matches = re.match(study_accssion_re, accession)
-        if len(matches.groups()) == 1 and matches.end() == len(accession):
+        match = re.match(study_accssion_re, accession)
+        if match and len(match.group(0)) == len(accession):
             return True
         return False
 
