@@ -21,6 +21,9 @@ Install from Git repo
 
     $ pip install git+ssh://git@github.com/EBI-Metagenomics/fetch_tool.git
 
+Install from private Git repo with access token (access token can be found in centralised password file)
+
+    $ pip install -U git+https://{access_token}@github.com/EBI-Metagenomics/fetch_tool@master
 
 Fetch read files (amplicon and WGS data)
 =====

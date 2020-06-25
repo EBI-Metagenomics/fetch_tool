@@ -67,7 +67,7 @@ class ERADAO(object):
         :return:
         """
 
-        query = "SELECT study_id, project_id, sample_id, analysis_id, data_file_format, LISTAGG(data_file_path, ';') WITHIN group( order by analysis_id) as data_file_path, tax_id, LISTAGG(md5, ';') WITHIN group( order by analysis_id) as md5 FROM v_mgp_assembly_file WHERE data_file_format = 'FASTA' and DATA_FILE_ROLE = 'GENERATED_FILE' and study_id = '{}' AND ANALYSIS_STATUS!='supressed' AND ANALYSIS_STATUS!='cancelled' GROUP BY study_id, project_id, sample_id, analysis_id, data_file_format, tax_id ".format(
+        query = "SELECT study_id, project_id, sample_id, analysis_id, data_file_format, data_file_role, LISTAGG(data_file_path, ';') WITHIN group( order by analysis_id) as data_file_path, tax_id, LISTAGG(md5, ';') WITHIN group( order by analysis_id) as md5 FROM v_mgp_assembly_file WHERE data_file_format = 'FASTA' and DATA_FILE_ROLE = 'GENERATED_FILE' and study_id = '{}' AND ANALYSIS_STATUS!='supressed' AND ANALYSIS_STATUS!='cancelled' GROUP BY study_id, project_id, sample_id, analysis_id, data_file_format, tax_id, data_file_role ".format(
             study_id)
         return self.data_access_object._runQuery(query)
 
@@ -78,7 +78,7 @@ class ERADAO(object):
         :return:
         """
 
-        query = "SELECT study_id, project_id, sample_id, analysis_id, data_file_format, LISTAGG(data_file_path, ';') WITHIN group( order by analysis_id) as data_file_path, tax_id, LISTAGG(md5, ';') WITHIN group( order by analysis_id) as md5 FROM v_mgp_assembly_file WHERE data_file_format = 'FASTA' and DATA_FILE_ROLE = 'SUBMISSION_FILE' and study_id = '{}' AND ANALYSIS_STATUS!='supressed' AND ANALYSIS_STATUS!='cancelled' GROUP BY study_id, project_id, sample_id, analysis_id, data_file_format, tax_id ".format(
+        query = "SELECT study_id, project_id, sample_id, analysis_id, data_file_format, data_file_role, LISTAGG(data_file_path, ';') WITHIN group( order by analysis_id) as data_file_path, tax_id, LISTAGG(md5, ';') WITHIN group( order by analysis_id) as md5 FROM v_mgp_assembly_file WHERE data_file_format = 'FASTA' and DATA_FILE_ROLE = 'SUBMISSION_FILE' and study_id = '{}' AND ANALYSIS_STATUS!='supressed' AND ANALYSIS_STATUS!='cancelled' GROUP BY study_id, project_id, sample_id, analysis_id, data_file_format, tax_id, data_file_role ".format(
             study_id)
         return self.data_access_object._runQuery(query)
 

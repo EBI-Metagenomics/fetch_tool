@@ -162,9 +162,12 @@ class AbstractDataFetcher(ABC):
     def fetch_project(self, project_accession):
         new_data = self.retrieve_project(project_accession)
         if not self.desc_file_only and not self.force_mode:
+            logging.info("Filtering study entries...")
+            logging.info("Number of entries before filtering: {}".format(len(new_data)))
             new_data = self.filter_by_accessions(new_data)
+            logging.info("{} entries left after filtering applied.".format(len(new_data)))
         if len(new_data) == 0:
-            logging.warning('No new data found')
+            logging.warning('No entries found')
             return
         project_accession = new_data[0]['STUDY_ID']
 
@@ -369,7 +372,9 @@ class AbstractDataFetcher(ABC):
             return {acc: '' for acc in study_accessions}
         else:
             json_data = r.json()
-            return {d['secondary_study_accession']: d['broker_name'] for d in json_data}
+            broker_name = {d['secondary_study_accession']: d['broker_name'] for d in json_data}
+            logging.info("Found the following broker name: {}".format(broker_name))
+            return broker_name
 
     def _study_has_permitted_broker(self, study_accession):
         broker = None if study_accession not in self.study_brokers else self.study_brokers.get(study_accession)
@@ -387,11 +392,21 @@ class AbstractDataFetcher(ABC):
         return filtered_file_names, filtered_md5s
 
     def _get_raw_filenames(self, filepaths, md5s, run_id, is_submitted_file):
+        """
+            Rename file names if submitted files or if generated assemblies
+        :param filepaths:
+        :param md5s:
+        :param run_id:
+        :param is_submitted_file:
+        :return:
+        """
         filepaths, md5s = self._filter_secondary_files(filepaths, md5s)
-        if is_submitted_file:
+        if is_submitted_file or (not is_submitted_file and run_id.startswith("ERZ")):
             file_names = self._rename_raw_files(filepaths, run_id)
         else:
             file_names = [os.path.basename(f) for f in filepaths]
+        # print("file path:{}".format(filepaths))
+        # print("file names:{}".format(file_names))
         return filepaths, file_names, md5s
 
     @staticmethod
@@ -567,6 +582,14 @@ class AbstractDataFetcher(ABC):
                 logging.error("Encountered an invalid study accession: {}".format(study_acc))
                 logging.info("Program will exit now!")
                 sys.exit(1)
+
+    @staticmethod
+    def rename_file(source, destination):
+        try:
+            os.rename(source, destination)
+        except:
+            print("Unexpected error:", sys.exc_info()[0])
+            raise
 
 
 def silentremove(filename):
