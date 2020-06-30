@@ -143,7 +143,7 @@ class AbstractDataFetcher(ABC):
         pass
 
     @abstractmethod
-    def _retrieve_project_info_ftp(self, project_accession):
+    def _retrieve_project_info_from_api(self, project_accession):
         pass
 
     @abstractmethod
@@ -165,9 +165,9 @@ class AbstractDataFetcher(ABC):
             logging.info("Filtering study entries...")
             logging.info("Number of entries before filtering: {}".format(len(new_data)))
             new_data = self.filter_by_accessions(new_data)
-            logging.info("{} entries left after filtering applied.".format(len(new_data)))
+            logging.info("Number of entries after filtering: {}.".format(len(new_data)))
         if len(new_data) == 0:
-            logging.warning('No entries found')
+            logging.warning('No entries found!')
             return
         project_accession = new_data[0]['STUDY_ID']
 
@@ -182,7 +182,7 @@ class AbstractDataFetcher(ABC):
         if self.private_mode:
             new_runs = self._retrieve_project_info_db(project_accession)
         else:
-            new_runs = self._retrieve_project_info_ftp(project_accession)
+            new_runs = self._retrieve_project_info_from_api(project_accession)
         return new_runs
 
     def download_raw_files(self, project_accession, new_runs):
@@ -194,9 +194,9 @@ class AbstractDataFetcher(ABC):
             file_md5s = run['MD5']
             for dl_file, dl_name in zip(download_sources, filenames):
                 dest = os.path.join(raw_dir, dl_name)
-                self.download_raw_file(dl_file, dest, file_md5s)
+                self.download_raw_file(dl_file, dest, file_md5s, self.private_mode)
 
-    def download_raw_file(self, dl_file, dest, dl_md5s):
+    def download_raw_file(self, dl_file, dest, dl_md5s, is_public):
         """
             Returns true if file was re-downloaded
         """
@@ -205,10 +205,10 @@ class AbstractDataFetcher(ABC):
         if not self._is_file_valid(dest, dl_md5s) or self.force_mode:
             silentremove(dest)
             try:
-                if self.private_mode:
-                    self.download_dcc(dest, dl_file)
-                else:
+                if is_public:
                     self.download_ftp(dest, dl_file)
+                else:
+                    self.download_dcc(dest, dl_file)
                 file_downloaded = True
             except Exception as e:
                 if self.ignore_errors:
@@ -216,7 +216,7 @@ class AbstractDataFetcher(ABC):
                 else:
                     raise e
         else:
-            logging.info('File {} already exists, skipping download'.format(filename))
+            logging.info('File {} already exists and MD5 matches, skipping download'.format(filename))
 
         if not self._is_file_valid(dest, dl_md5s):
             msg = 'MD5 of downloaded file {} does not match expected MD5'.format(filename)

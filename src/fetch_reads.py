@@ -137,7 +137,7 @@ class FetchReads(AbstractDataFetcher):
 
         return filtered_file_names, filtered_md5s
 
-    def _retrieve_project_info_ftp(self, project_accession):
+    def _retrieve_project_info_from_api(self, project_accession):
         data = self._retrieve_ena_url(self.ENA_PROJECT_URL.format(project_accession))
         trusted_data = self._filter_ftp_broker_names(data)
         return list(map(self.map_datafields_ftp_2_db, trusted_data))
