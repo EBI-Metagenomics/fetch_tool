@@ -123,19 +123,19 @@ class FetchAssemblies(AbstractDataFetcher):
                 combine_analyses.append(new_analysis)
         return combine_analyses
 
-    @staticmethod
-    def is_trusted_ftp_data(data, trusted_brokers):
-        is_trusted = data['submitted_ftp'] != '' and \
-                     (data.get('broker_name') in trusted_brokers
-                      or data.get('center_name') in trusted_brokers)
-        if not is_trusted:
-            logging.warning('Study contains untrusted broker {} and centername {}'.format(data.get('broker_name'),
-                                                                                          data.get('center_name')))
-        return is_trusted
+#    @staticmethod
+#    def is_trusted_ftp_data(data, trusted_brokers):
+#        is_trusted = data['submitted_ftp'] != '' and \
+#                     (data.get('broker_name') in trusted_brokers
+#                      or data.get('center_name') in trusted_brokers)
+#        if not is_trusted:
+#            logging.warning('Study contains untrusted broker {} and centername {}'.format(data.get('broker_name'),
+#                                                                                          data.get('center_name')))
+#        return is_trusted
 
-    def _filter_ftp_broker_names(self, data):
-        trusted_brokers = self.config['trustedBrokers']
-        return [d for d in data if self.is_trusted_ftp_data(d, trusted_brokers)]
+#    def _filter_ftp_broker_names(self, data):
+#        trusted_brokers = self.config['trustedBrokers']
+#        return [d for d in data if self.is_trusted_ftp_data(d, trusted_brokers)]
 
     def map_datafields_ftp_2_db(self, assemblydata):
         is_submitted_file = assemblydata['submitted_ftp'] is not ''
@@ -153,8 +153,8 @@ class FetchAssemblies(AbstractDataFetcher):
     def _retrieve_project_info_ftp(self, project_accession):
         data = self._retrieve_ena_url(self.ENA_PROJECT_URL.format(project_accession))
         data = [d for d in data if d['analysis_type'] == 'SEQUENCE_ASSEMBLY']
-        insertable_assemblies = self._filter_ftp_broker_names(data)
-        return list(map(self.map_datafields_ftp_2_db, insertable_assemblies))
+#        insertable_assemblies = self._filter_ftp_broker_names(data)
+        return list(map(self.map_datafields_ftp_2_db, data))
 
     project_webin_accounts = {}
 

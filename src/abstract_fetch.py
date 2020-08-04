@@ -339,8 +339,8 @@ class AbstractDataFetcher(ABC):
     def get_api_credentials(self):
         return self.config['enaAPIUsername'] + ':' + self.config['enaAPIPassword']
 
-    def get_trusted_brokers(self):
-        return self.config['trustedBrokers']
+#    def get_trusted_brokers(self):
+#        return self.config['trustedBrokers']
 
     def get_ena_api_url(self):
         return
@@ -371,9 +371,9 @@ class AbstractDataFetcher(ABC):
             json_data = r.json()
             return {d['secondary_study_accession']: d['broker_name'] for d in json_data}
 
-    def _study_has_permitted_broker(self, study_accession):
-        broker = None if study_accession not in self.study_brokers else self.study_brokers.get(study_accession)
-        return broker and broker != '' and broker in self.config['trustedBrokers']
+#    def _study_has_permitted_broker(self, study_accession):
+#        broker = None if study_accession not in self.study_brokers else self.study_brokers.get(study_accession)
+#        return broker and broker != '' and broker in self.config['trustedBrokers']
 
     def _is_rawdata_filetype(self, filename):
         return any(x in filename for x in ['.fa', '.fna', '.fasta', '.fq', 'fastq'])

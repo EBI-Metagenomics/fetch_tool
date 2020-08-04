@@ -82,15 +82,15 @@ class FetchReads(AbstractDataFetcher):
         # Get all generated study data from ENA
         study_run_data = self._retrieve_era_generated_data(project_accession)
         # Add all runs which don't have generated data
-        if self._study_has_permitted_broker(project_accession):
-            submitted_files = self._retrieve_era_submitted_data(project_accession)
-            existing_accessions = self._get_study_run_accessions(study_run_data)
-            study_run_data.extend([f for f in submitted_files if f['RUN_ID'] not in existing_accessions])
-        else:
-            broker = None if project_accession not in self.study_brokers else self.study_brokers.get(project_accession)
-            logging.debug(
-                'Study {} does not come from a trusted broker ({}). Submitted_ftp files will be ignored'.format(
-                    project_accession, broker))
+#        if self._study_has_permitted_broker(project_accession):
+        submitted_files = self._retrieve_era_submitted_data(project_accession)
+        existing_accessions = self._get_study_run_accessions(study_run_data)
+        study_run_data.extend([f for f in submitted_files if f['RUN_ID'] not in existing_accessions])
+#        else:
+#            broker = None if project_accession not in self.study_brokers else self.study_brokers.get(project_accession)
+#            logging.debug(
+#                'Study {} does not come from a trusted broker ({}). Submitted_ftp files will be ignored'.format(
+#                    project_accession, broker))
         for data in study_run_data:
             is_submitted_file = data['DATA_FILE_ROLE'] == 'SUBMITTED_FILE'
             data['DATA_FILE_PATH'], data['file'], data['MD5'] = self._get_raw_filenames(data['DATA_FILE_PATH'],
@@ -99,13 +99,13 @@ class FetchReads(AbstractDataFetcher):
                                                                                         is_submitted_file)
         return study_run_data
 
-    @staticmethod
-    def is_trusted_ftp_data(data, trusted_brokers):
-        return data['fastq_ftp'] != '' or (data['submitted_ftp'] != '' and data['broker_name'] in trusted_brokers)
+#    @staticmethod
+#    def is_trusted_ftp_data(data, trusted_brokers):
+#        return data['fastq_ftp'] != '' or (data['submitted_ftp'] != '' and data['broker_name'] in trusted_brokers)
 
-    def _filter_ftp_broker_names(self, data):
-        trusted_brokers = self.config['trustedBrokers']
-        return [d for d in data if self.is_trusted_ftp_data(d, trusted_brokers)]
+#    def _filter_ftp_broker_names(self, data):
+#        trusted_brokers = self.config['trustedBrokers']
+#        return [d for d in data if self.is_trusted_ftp_data(d, trusted_brokers)]
 
     def map_datafields_ftp_2_db(self, rundata):
         is_submitted_file = rundata['submitted_ftp'] is not ''
@@ -139,8 +139,8 @@ class FetchReads(AbstractDataFetcher):
 
     def _retrieve_project_info_ftp(self, project_accession):
         data = self._retrieve_ena_url(self.ENA_PROJECT_URL.format(project_accession))
-        trusted_data = self._filter_ftp_broker_names(data)
-        return list(map(self.map_datafields_ftp_2_db, trusted_data))
+#        trusted_data = self._filter_ftp_broker_names(data)
+        return list(map(self.map_datafields_ftp_2_db, data))
 
 
 def main():
