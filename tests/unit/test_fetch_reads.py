@@ -134,41 +134,41 @@ class TestFetchReads:
         transform = fetch.map_project_info_db_row(raw_data)
         assert transform['file'] == 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz'
 
-    def test_is_trusted_ftp_data_should_be_trusted_from_broker(self):
-        fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
-        trusted_brokers = ['EMG']
-        assert fetch.is_trusted_ftp_data({'fastq_ftp': '',
-                                          'submitted_ftp': 'filepath',
-                                          'broker_name': 'EMG'},
-                                         trusted_brokers)
+#    def test_is_trusted_ftp_data_should_be_trusted_from_broker(self):
+#        fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
+#        trusted_brokers = ['EMG']
+#        assert fetch.is_trusted_ftp_data({'fastq_ftp': '',
+#                                          'submitted_ftp': 'filepath',
+#                                          'broker_name': 'EMG'},
+#                                         trusted_brokers)
 
-    def test_is_trusted_ftp_data_should_be_trusted_as_generated_data(self):
-        fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
-        trusted_brokers = ['EMG']
-        assert fetch.is_trusted_ftp_data({'fastq_ftp': 'filepath', 'submitted_ftp': 'filepath', 'broker_name': 'EMG'},
-                                         trusted_brokers)
+#    def test_is_trusted_ftp_data_should_be_trusted_as_generated_data(self):
+#        fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
+#        trusted_brokers = ['EMG']
+#        assert fetch.is_trusted_ftp_data({'fastq_ftp': 'filepath', 'submitted_ftp': 'filepath', 'broker_name': 'EMG'},
+#                                         trusted_brokers)
 
-    def test_filter_ftp_broker_names_should_return_empty(self):
-        fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
-        assert [] == fetch._filter_ftp_broker_names([])
+#    def test_filter_ftp_broker_names_should_return_empty(self):
+#        fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
+#        assert [] == fetch._filter_ftp_broker_names([])
 
-    def test_filter_ftp_broker_names_should_filter_brokers(self):
-        fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
-        fetch.config['trustedBrokers'] = ['EMG']
-        run_data = [
-            {'fastq_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
-            {'fastq_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
-        ]
-        assert 1 == len(fetch._filter_ftp_broker_names(run_data))
+#    def test_filter_ftp_broker_names_should_filter_brokers(self):
+#        fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
+#        fetch.config['trustedBrokers'] = ['EMG']
+#        run_data = [
+#            {'fastq_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
+#            {'fastq_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
+#        ]
+#        assert 1 == len(fetch._filter_ftp_broker_names(run_data))
 
-    def test_filter_ftp_broker_names_should_allow_generated_file(self):
-        fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
-        fetch.config['trustedBrokers'] = ['EMG']
-        run_data = [
-            {'fastq_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
-            {'fastq_ftp': 'datafile', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
-        ]
-        assert 2 == len(fetch._filter_ftp_broker_names(run_data))
+#    def test_filter_ftp_broker_names_should_allow_generated_file(self):
+#        fetch = afr.FetchReads(argv=['-p', 'ERP003634'])
+#        fetch.config['trustedBrokers'] = ['EMG']
+#        run_data = [
+#            {'fastq_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
+#            {'fastq_ftp': 'datafile', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
+#        ]
+#        assert 2 == len(fetch._filter_ftp_broker_names(run_data))
 
     def test_map_datafields_ftp_2_db_should_map_all_fields(self):
         raw_data = {
@@ -221,11 +221,11 @@ class TestFetchReads:
 
     @patch('src.fetch_reads.FetchReads._retrieve_era_generated_data')
     @patch('src.fetch_reads.FetchReads._get_studies_brokers')
-    @patch('src.fetch_reads.FetchReads._study_has_permitted_broker')
+#    @patch('src.fetch_reads.FetchReads._study_has_permitted_broker')
     def test_retrieve_project_info_db_should_not_use_generated_data(self, mocked_class1, mocked_class2, mocked_class3,
                                                                     tmpdir):
         afr.FetchReads._retrieve_era_generated_data = self.mock_db_response_generated_data
-        afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: False
+#        afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: False
         afr.FetchReads._get_studies_brokers = lambda *args, **kwargs: {'ERP113309': ''}
         fetch = afr.FetchReads(argv=['-p', 'ERP113309', '-d', str(tmpdir), '--private'])
         runs = fetch._retrieve_project_info_db('ERP113309')
@@ -233,12 +233,12 @@ class TestFetchReads:
 
     @patch('src.fetch_reads.FetchReads._retrieve_era_generated_data')
     @patch('src.fetch_reads.FetchReads._retrieve_era_submitted_data')
-    @patch('src.fetch_reads.FetchReads._study_has_permitted_broker')
+#    @patch('src.fetch_reads.FetchReads._study_has_permitted_broker')
     def test_retrieve_project_info_db_should_add_submitted_data(self, mocked_class1, mocked_class2,
                                                                 mocked_class3, tmpdir):
         afr.FetchReads._retrieve_era_generated_data = self.mock_db_response_generated_data
         afr.FetchReads._retrieve_era_submitted_data = self.mock_db_response_submitted_data
-        afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: True
+#        afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: True
         afr.FetchReads._get_studies_brokers = lambda *args, **kwargs: {'ERP113309': ''}
         fetch = afr.FetchReads(argv=['-p', 'ERP113309', '-d', str(tmpdir), '--private'])
         runs = fetch._retrieve_project_info_db('ERP113309')
@@ -251,7 +251,7 @@ class TestFetchReads:
         afr.ERADAO.retrieve_study_accessions_from_runs = lambda *args, **kwargs: [{'STUDY_ID': study_accession}]
         afr.FetchReads._retrieve_era_generated_data = self.mock_db_response_generated_data
         afr.FetchReads._retrieve_era_submitted_data = self.mock_db_response_submitted_data
-        afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: True
+#        afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: True
         fetch = afr.FetchReads(argv=['-ru', run_id, '-d', str(tmpdir), '--private'])
         fetch._process_additional_args()
         assert fetch.runs == [run_id]
