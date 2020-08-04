@@ -133,7 +133,7 @@ class TestFetchAssemblies:
 #        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
 #        trusted_brokers = ['EMG']
 #        assert fetch.is_trusted_ftp_data({'fasta_ftp': 'filepath', 'submitted_ftp': 'filepath', 'broker_name': 'EMG'},
-                                         trusted_brokers)
+#                                         trusted_brokers)
 
 #    def test_filter_ftp_broker_names_should_return_empty(self):
 #        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
