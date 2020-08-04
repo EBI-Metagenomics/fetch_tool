@@ -222,8 +222,7 @@ class TestFetchReads:
     @patch('src.fetch_reads.FetchReads._retrieve_era_generated_data')
     @patch('src.fetch_reads.FetchReads._get_studies_brokers')
 #    @patch('src.fetch_reads.FetchReads._study_has_permitted_broker')
-    def test_retrieve_project_info_db_should_not_use_generated_data(self, mocked_class1, mocked_class2, mocked_class3,
-                                                                    tmpdir):
+    def test_retrieve_project_info_db_should_not_use_generated_data(self, mocked_class1, mocked_class2, tmpdir):
         afr.FetchReads._retrieve_era_generated_data = self.mock_db_response_generated_data
 #        afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: False
         afr.FetchReads._get_studies_brokers = lambda *args, **kwargs: {'ERP113309': ''}
@@ -234,8 +233,7 @@ class TestFetchReads:
     @patch('src.fetch_reads.FetchReads._retrieve_era_generated_data')
     @patch('src.fetch_reads.FetchReads._retrieve_era_submitted_data')
 #    @patch('src.fetch_reads.FetchReads._study_has_permitted_broker')
-    def test_retrieve_project_info_db_should_add_submitted_data(self, mocked_class1, mocked_class2,
-                                                                mocked_class3, tmpdir):
+    def test_retrieve_project_info_db_should_add_submitted_data(self, mocked_class1, mocked_class2, tmpdir):
         afr.FetchReads._retrieve_era_generated_data = self.mock_db_response_generated_data
         afr.FetchReads._retrieve_era_submitted_data = self.mock_db_response_submitted_data
 #        afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: True

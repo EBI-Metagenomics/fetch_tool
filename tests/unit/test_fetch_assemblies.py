@@ -200,7 +200,7 @@ class TestFetchAssemblies:
     @patch('src.fetch_assemblies.FetchAssemblies._get_studies_brokers')
 #    @patch('src.fetch_assemblies.FetchAssemblies._study_has_permitted_broker')
     def test_retrieve_project_info_db_should_merge_data_sources(self, mocked_class1, mocked_class2, mocked_class3,
-                                                                    mocked_class_4, tmpdir):
+                                                                tmpdir):
         afa.FetchAssemblies._get_assembly_metadata = self.mock_get_assembly_metadata
         afa.FetchAssemblies._get_study_wgs_analyses = self.mock_get_study_wgs_analyses
 #        afa.FetchAssemblies._study_has_permitted_broker = lambda *args, **kwargs: False
