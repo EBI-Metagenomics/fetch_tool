@@ -228,7 +228,7 @@ class TestFetchReads:
         afr.FetchReads._retrieve_era_generated_data = self.mock_db_response_generated_data
         afr.FetchReads._retrieve_era_submitted_data = self.mock_db_response_generated_data #keep the same as generated
 #        afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: False
-        afr.FetchReads._get_studies_brokers = lambda *args, **kwargs: {'ERP113309': ''}
+#        afr.FetchReads._get_studies_brokers = lambda *args, **kwargs: {'ERP113309': ''}
         fetch = afr.FetchReads(argv=['-p', 'ERP113309', '-d', str(tmpdir), '--private'])
         runs = fetch._retrieve_project_info_db('ERP113309')
         assert len(runs) == 2
@@ -240,7 +240,7 @@ class TestFetchReads:
         afr.FetchReads._retrieve_era_generated_data = self.mock_db_response_generated_data
         afr.FetchReads._retrieve_era_submitted_data = self.mock_db_response_submitted_data
 #        afr.FetchReads._study_has_permitted_broker = lambda *args, **kwargs: True
-        afr.FetchReads._get_studies_brokers = lambda *args, **kwargs: {'ERP113309': ''}
+#        afr.FetchReads._get_studies_brokers = lambda *args, **kwargs: {'ERP113309': ''}
         fetch = afr.FetchReads(argv=['-p', 'ERP113309', '-d', str(tmpdir), '--private'])
         runs = fetch._retrieve_project_info_db('ERP113309')
         assert len(runs) == 3
