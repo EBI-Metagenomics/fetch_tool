@@ -54,7 +54,7 @@ class AbstractDataFetcher(ABC):
         if self.args.private:
             self.init_era_dao()
             self.init_ena_dao()
-            self.study_brokers = self._get_studies_brokers(self.project_accessions)
+#            self.study_brokers = self._get_studies_brokers(self.project_accessions)
         else:
             self.eradao = None
             self.enadao = None
@@ -345,31 +345,31 @@ class AbstractDataFetcher(ABC):
     def get_ena_api_url(self):
         return
 
-    def _get_studies_brokers(self, study_accessions):
-        logging.info("Retrieving study broker name for study {}...".format(study_accessions))
-        headers = {'Accept': '*/*',
-                   'Content-Type': 'application/x-www-form-urlencoded'}
-        data = {
-            'dataPortal': 'metagenome',
-            'result': 'study',
-            'query': "secondary_study_accession%3D" + "%20OR%20secondary_study_accession%3D".join(study_accessions),
-            'fields': 'secondary_study_accession,broker_name',
-            'format': 'json'
-        }
+#    def _get_studies_brokers(self, study_accessions):
+#        logging.info("Retrieving study broker name for study {}...".format(study_accessions))
+#        headers = {'Accept': '*/*',
+#                   'Content-Type': 'application/x-www-form-urlencoded'}
+#        data = {
+#            'dataPortal': 'metagenome',
+#            'result': 'study',
+#            'query': "secondary_study_accession%3D" + "%20OR%20secondary_study_accession%3D".join(study_accessions),
+#            'fields': 'secondary_study_accession,broker_name',
+#            'format': 'json'
+#        }
 
-        r = requests.post(self.config['enaAPIUrl'] + 'search', headers=headers, data=data,
-                          auth=(self.config['enaAPIUsername'], self.config['enaAPIPassword']))
+#        r = requests.post(self.config['enaAPIUrl'] + 'search', headers=headers, data=data,
+#                          auth=(self.config['enaAPIUsername'], self.config['enaAPIPassword']))
 
-        if r.status_code != 200:
-            logging.warning(
-                "Could NOT retrieve study broker name using the ENA Portal API! Got response code {}".format(
-                    r.status_code))
-            logging.warning("Possible reasons for that could be:\n - private study is"
-                            " not indexed yet\n - study is not labelled as metagenome study ")
-            return {acc: '' for acc in study_accessions}
-        else:
-            json_data = r.json()
-            return {d['secondary_study_accession']: d['broker_name'] for d in json_data}
+#        if r.status_code != 200:
+#            logging.warning(
+#                "Could NOT retrieve study broker name using the ENA Portal API! Got response code {}".format(
+#                    r.status_code))
+#            logging.warning("Possible reasons for that could be:\n - private study is"
+#                            " not indexed yet\n - study is not labelled as metagenome study ")
+#            return {acc: '' for acc in study_accessions}
+#        else:
+#            json_data = r.json()
+#            return {d['secondary_study_accession']: d['broker_name'] for d in json_data}
 
 #    def _study_has_permitted_broker(self, study_accession):
 #        broker = None if study_accession not in self.study_brokers else self.study_brokers.get(study_accession)
