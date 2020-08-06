@@ -121,41 +121,41 @@ class TestFetchAssemblies:
         transform = fetch.map_project_info_db_row(raw_data)
         assert transform['file'] == 'ERZ477685.fasta.gz'
 
-    def test_is_trusted_ftp_data_should_be_trusted_from_broker(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        trusted_brokers = ['EMG']
-        assert fetch.is_trusted_ftp_data({'fasta_ftp': '',
-                                          'submitted_ftp': 'filepath',
-                                          'broker_name': 'EMG'},
-                                         trusted_brokers)
+#    def test_is_trusted_ftp_data_should_be_trusted_from_broker(self):
+#        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
+#        trusted_brokers = ['EMG']
+#        assert fetch.is_trusted_ftp_data({'fasta_ftp': '',
+#                                          'submitted_ftp': 'filepath',
+#                                          'broker_name': 'EMG'},
+#                                         trusted_brokers)#
 
-    def test_is_trusted_ftp_data_should_be_trusted_as_generated_data(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        trusted_brokers = ['EMG']
-        assert fetch.is_trusted_ftp_data({'fasta_ftp': 'filepath', 'submitted_ftp': 'filepath', 'broker_name': 'EMG'},
-                                         trusted_brokers)
+#    def test_is_trusted_ftp_data_should_be_trusted_as_generated_data(self):
+#        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
+#        trusted_brokers = ['EMG']
+#        assert fetch.is_trusted_ftp_data({'fasta_ftp': 'filepath', 'submitted_ftp': 'filepath', 'broker_name': 'EMG'},
+#                                         trusted_brokers)
 
-    def test_filter_ftp_broker_names_should_return_empty(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        assert [] == fetch._filter_ftp_broker_names([])
+#    def test_filter_ftp_broker_names_should_return_empty(self):
+#        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
+#        assert [] == fetch._filter_ftp_broker_names([])
 
-    def test_filter_ftp_broker_names_should_filter_brokers(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        fetch.config['trustedBrokers'] = ['EMG']
-        run_data = [
-            {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
-            {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
-        ]
-        assert 'EMG' == fetch._filter_ftp_broker_names(run_data)[0]['broker_name']
+#    def test_filter_ftp_broker_names_should_filter_brokers(self):
+#        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
+#        fetch.config['trustedBrokers'] = ['EMG']
+#        run_data = [
+#            {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
+#            {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
+#        ]
+#        assert 'EMG' == fetch._filter_ftp_broker_names(run_data)[0]['broker_name']
 
-    def test_filter_ftp_broker_names_should_allow_generated_file(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        fetch.config['trustedBrokers'] = ['EMG']
-        run_data = [
-            {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
-            {'fasta_ftp': 'datafile', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
-        ]
-        assert 1 == len(fetch._filter_ftp_broker_names(run_data))
+#    def test_filter_ftp_broker_names_should_allow_generated_file(self):
+#        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
+#        fetch.config['trustedBrokers'] = ['EMG']
+#        run_data = [
+#            {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
+#            {'fasta_ftp': 'datafile', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
+#        ]
+#        assert 1 == len(fetch._filter_ftp_broker_names(run_data))
 
     def test_map_datafields_ftp_2_db_should_map_all_fields(self):
         raw_data = {
@@ -197,14 +197,13 @@ class TestFetchAssemblies:
 
     @patch('src.fetch_assemblies.FetchAssemblies._get_assembly_metadata')
     @patch('src.fetch_assemblies.FetchAssemblies._get_study_wgs_analyses')
-    @patch('src.fetch_assemblies.FetchAssemblies._get_studies_brokers')
-    @patch('src.fetch_assemblies.FetchAssemblies._study_has_permitted_broker')
-    def test_retrieve_project_info_db_should_merge_data_sources(self, mocked_class1, mocked_class2, mocked_class3,
-                                                                    mocked_class_4, tmpdir):
+#    @patch('src.fetch_assemblies.FetchAssemblies._get_studies_brokers')
+#    @patch('src.fetch_assemblies.FetchAssemblies._study_has_permitted_broker')
+    def test_retrieve_project_info_db_should_merge_data_sources(self, mocked_class1, mocked_class2, tmpdir):
         afa.FetchAssemblies._get_assembly_metadata = self.mock_get_assembly_metadata
         afa.FetchAssemblies._get_study_wgs_analyses = self.mock_get_study_wgs_analyses
-        afa.FetchAssemblies._study_has_permitted_broker = lambda *args, **kwargs: False
-        afa.FetchAssemblies._get_studies_brokers = lambda *args, **kwargs: {'ERP003634': ''}
+#        afa.FetchAssemblies._study_has_permitted_broker = lambda *args, **kwargs: False
+#        afa.FetchAssemblies._get_studies_brokers = lambda *args, **kwargs: {'ERP003634': ''}
         fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634', '-d', str(tmpdir), '--private'])
         assemblies = fetch._retrieve_project_info_db('ERP003634')
         assert len(assemblies) == 2
@@ -212,16 +211,16 @@ class TestFetchAssemblies:
     @patch('src.fetch_assemblies.ERADAO.retrieve_study_accessions_from_analyses')
     @patch('src.fetch_assemblies.FetchAssemblies._get_assembly_metadata')
     @patch('src.fetch_assemblies.FetchAssemblies._get_study_wgs_analyses')
-    @patch('src.fetch_assemblies.FetchAssemblies._get_studies_brokers')
+#    @patch('src.fetch_assemblies.FetchAssemblies._get_studies_brokers')
     def test_process_additional_args_should_find_study_accessions_for_assemblies(self, mocked_class1, mocked_class2,
-                                                                                 mocked_class3, mocked_class4, tmpdir):
+                                                                                 mocked_class3, tmpdir):
         study_accession = 'ERP104225'
         analysis_id = 'ERZ477684'
         afa.ERADAO.retrieve_study_accessions_from_analyses = lambda *args, **kwargs: [{'STUDY_ID': study_accession}]
         afa.FetchAssemblies._get_assembly_metadata = self.mock_get_assembly_metadata
         afa.FetchAssemblies._get_study_wgs_analyses = self.mock_get_study_wgs_analyses
-        afa.FetchAssemblies._study_has_permitted_broker = lambda *args, **kwargs: True
-        afa.FetchAssemblies._get_studies_brokers = lambda *args, **kwargs: {'ERP003634': ''}
+#        afa.FetchAssemblies._study_has_permitted_broker = lambda *args, **kwargs: True
+#        afa.FetchAssemblies._get_studies_brokers = lambda *args, **kwargs: {'ERP003634': ''}
         fetch = afa.FetchAssemblies(argv=['-as', analysis_id, '-d', str(tmpdir), '--private'])
         fetch._process_additional_args()
         assert fetch.assemblies == [analysis_id]
