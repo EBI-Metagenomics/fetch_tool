@@ -9,11 +9,11 @@ path_re = re.compile(r'(.*)/(.*)')
 
 
 class FetchReads(AbstractDataFetcher):
-    ENA_PROJECT_URL = 'http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession={0}&result=read_run&' \
+    ENA_PROJECT_URL = 'https://www.ebi.ac.uk/ena/portal/api/filereport?accession={0}&result=read_run&' \
                       'fields=study_accession,secondary_study_accession,sample_accession,secondary_sample_accession,' \
                       'experiment_accession,run_accession,instrument_model,library_layout,' \
                       'fastq_ftp,fastq_md5,submitted_ftp,submitted_md5,library_strategy,broker_name,library_source&' \
-                      'download=txt'
+                      'download=true'
 
     def __init__(self, argv=None):
         self.runs = None

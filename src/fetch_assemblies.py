@@ -13,12 +13,12 @@ path_re = re.compile(r'(.*)/(.*)')
 
 
 class FetchAssemblies(AbstractDataFetcher):
-    ENA_PROJECT_URL = 'http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession={0}' \
+    ENA_PROJECT_URL = 'https://www.ebi.ac.uk/ena/portal/api/filereport?accession={0}' \
                       '&result=analysis' \
                       '&fields=analysis_accession,study_accession,secondary_study_accession,sample_accession,' \
                       'secondary_sample_accession,analysis_title,analysis_type,center_name,first_public,' \
                       'last_updated,study_title,analysis_alias,study_alias,submitted_md5,submitted_ftp,' \
-                      'sample_alias,broker_name,sample_title&download=txt'
+                      'sample_alias,broker_name,sample_title&download=true'
 
     def __init__(self, argv=None):
         self.ACCESSION_FIELD = 'ANALYSIS_ID'
