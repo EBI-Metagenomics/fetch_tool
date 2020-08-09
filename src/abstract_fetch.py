@@ -374,8 +374,8 @@ class AbstractDataFetcher(ABC):
 #    def _study_has_permitted_broker(self, study_accession):
 #        broker = None if study_accession not in self.study_brokers else self.study_brokers.get(study_accession)
 #        return broker and broker != '' and broker in self.config['trustedBrokers']
-
-    def _is_rawdata_filetype(self, filename):
+    @staticmethod
+    def _is_rawdata_filetype(filename):
         return any(x in filename for x in ['.fa', '.fna', '.fasta', '.fq', 'fastq'])
 
     def _filter_secondary_files(self, joined_file_names, md5s):

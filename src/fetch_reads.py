@@ -56,6 +56,7 @@ class FetchReads(AbstractDataFetcher):
         return list(filter(bool, [entry['RUN_ID'] for entry in project_data]))
 
     def _filter_accessions_from_args(self, run_data, run_accession_field):
+        run_data = [x for x in run_data if x]
         if self.runs:
             run_data = list(filter(lambda r: r[run_accession_field] in self.runs, run_data))
         return run_data
@@ -114,17 +115,19 @@ class FetchReads(AbstractDataFetcher):
         rundata['RUN_ID'] = rundata.pop('run_accession')
         rundata['DATA_FILE_ROLE'] = 'SUBMISSION_FILE' if is_submitted_file else 'GENERATED_FILE'
         file_paths = rundata.get('fastq_ftp') or rundata.get('submitted_ftp')
-        md5s = rundata.get('fastq_md5') or rundata.get('submitted_md5')
-        rundata['DATA_FILE_PATH'], rundata['file'], rundata['MD5'] = self._get_raw_filenames(file_paths,
-                                                                                             md5s,
-                                                                                             rundata['RUN_ID'],
-                                                                                             is_submitted_file)
-        for key in ('fastq_ftp', 'submitted_ftp', 'fastq_md5', 'submitted_md5'):
-            del rundata[key]
-        rundata['LIBRARY_STRATEGY'] = rundata.pop('library_strategy')
-        rundata['LIBRARY_SOURCE'] = rundata.pop('library_source')
-        rundata['LIBRARY_LAYOUT'] = rundata.pop('library_layout')
-        return rundata
+        is_valid_filetype = [self._is_rawdata_filetype(f) for f in file_paths.split(';')]
+        if not False in is_valid_filetype:
+            md5s = rundata.get('fastq_md5') or rundata.get('submitted_md5')
+            rundata['DATA_FILE_PATH'], rundata['file'], rundata['MD5'] = self._get_raw_filenames(file_paths,
+                                                                                                 md5s,
+                                                                                                 rundata['RUN_ID'],
+                                                                                                 is_submitted_file)
+            for key in ('fastq_ftp', 'submitted_ftp', 'fastq_md5', 'submitted_md5'):
+                del rundata[key]
+            rundata['LIBRARY_STRATEGY'] = rundata.pop('library_strategy')
+            rundata['LIBRARY_SOURCE'] = rundata.pop('library_source')
+            rundata['LIBRARY_LAYOUT'] = rundata.pop('library_layout')
+            return rundata
 
     def _filter_secondary_files(self, joined_file_names, md5s):
         filtered_file_names, filtered_md5s = super()._filter_secondary_files(joined_file_names, md5s)
