@@ -12,6 +12,7 @@ from filelock import UnixFileLock
 from pandas.errors import EmptyDataError
 import pandas as pd
 import requests
+import ftplib
 import urllib.request
 from subprocess import call
 
@@ -37,6 +38,8 @@ class AbstractDataFetcher(ABC):
         self.base_dir = self.args.dir
 
         self.config = load_config(self.args.config_file)
+        self.ENA_API_USER = self.config['enaAPIUsername']
+        self.ENA_API_PASSWORD = self.config['enaAPIPassword']
 
         self.interactive_mode = self.args.interactive
         self.private_mode = self.args.private
@@ -138,9 +141,9 @@ class AbstractDataFetcher(ABC):
     def create_output_dir(dirname):
         os.makedirs(dirname, exist_ok=True)
 
-    @abstractmethod
-    def _retrieve_project_info_db(self, project_accession):
-        pass
+    #@abstractmethod
+    #def _retrieve_project_info_db(self, project_accession):
+    #    pass
 
     @abstractmethod
     def _retrieve_project_info_from_api(self, project_accession):
@@ -169,20 +172,18 @@ class AbstractDataFetcher(ABC):
         if len(new_data) == 0:
             logging.warning('No entries found!')
             return
-        project_accession = new_data[0]['STUDY_ID']
+        secondary_project_accession = project_accession
+        primary_project_accession = new_data[0]['study_accession']
 
-        os.makedirs(self.get_project_workdir(project_accession), exist_ok=True)
+        os.makedirs(self.get_project_workdir(secondary_project_accession), exist_ok=True)
 
-        self.write_project_files(project_accession, new_data)
+        self.write_project_files(secondary_project_accession, new_data)
 
         if not self.desc_file_only:
             self.download_raw_files(project_accession, new_data)
 
     def retrieve_project(self, project_accession):
-        if self.private_mode:
-            new_runs = self._retrieve_project_info_db(project_accession)
-        else:
-            new_runs = self._retrieve_project_info_from_api(project_accession)
+        new_runs = self._retrieve_project_info_from_api(project_accession)
         return new_runs
 
     def download_raw_files(self, project_accession, new_runs):
@@ -205,10 +206,12 @@ class AbstractDataFetcher(ABC):
         if not self._is_file_valid(dest, dl_md5s) or self.force_mode:
             silentremove(dest)
             try:
-                if is_public:
+                is_success_lftp = self.download_lftp(dest, dl_file)
+                if is_success_lftp:
+                    file_downloaded = True
+                if not is_success_lftp:
+                    logging.info('Too many failed attempts. Trying wget now...')
                     self.download_ftp(dest, dl_file)
-                else:
-                    self.download_dcc(dest, dl_file)
                 file_downloaded = True
             except Exception as e:
                 if self.ignore_errors:
@@ -235,6 +238,9 @@ class AbstractDataFetcher(ABC):
 
     def get_project_download_file(self, project_accession):
         return os.path.join(self.get_project_workdir(project_accession), 'download')
+
+    def get_project_insdc_txt_file(self, project_accession):
+        return os.path.join(self.get_project_workdir(project_accession), project_accession + 'insdc.txt')
 
     def read_download_data(self, project_accession):
         filepath = self.get_project_download_file(project_accession)
@@ -434,20 +440,23 @@ class AbstractDataFetcher(ABC):
         response = None
         while True:
             try:
-                response = urllib.request.urlopen(url)
+                response = requests.get(url, auth=(self.config['enaAPIUsername'], self.config['enaAPIPassword']))
                 break
-            except urllib.request.URLError as e:
-                logging.error(e)
-                logging.warning("Error opening url " + url)
+            except requests.exceptions.RequestException as e: #check syntax
+                if response.status_code != 200:
+                    if response.status_code == 204:
+                        logging.warning("Could not retrieve any assemblies!")
+                    elif response.status_code == 401:
+                        logging.warning("Invalid Username or Password!")
+                    else:
+                        logging.warning("Received the following unknown response code from the "
+                                        "Portal API server:\n{}".format(r.status_code))
                 attempt += 1
             if attempt >= self.config['url_max_attempts']:
                 logging.critical("Failed to open url " + url + " after " + str(
                     attempt) + " attempts")
                 sys.exit(1)
-        data = [s.decode().rstrip() for s in response]
-        headers = data[0].split('\t')
-        data = data[1:]
-        data = [{k: v for k, v in zip(headers, d.split('\t'))} for d in data]  # Convert rows to list of dictionaries
+        data = response.json()
         return data
 
     @staticmethod
@@ -501,14 +510,16 @@ class AbstractDataFetcher(ABC):
                         raise EnvironmentError('Too many failed attempts. Program will exit now.')
             attempt += 1
 
-    def download_ftp(self, dest, url):
+    def download_ftp(self, dest, url, auth=True):
         if url[:4] == 'ftp.':
             url = 'ftp://' + url
         attempt = 0
         while True:
             try:
                 logging.info("Downloading file from FTP server..." + url)
-                download_command = ["wget", "-v" if self.args.verbose else "-q", "-t", "5", "-O", dest, url]
+                download_command = ["wget", "-v", "--user={}".format(self.ENA_API_USER),
+                                    "--password={}".format(self.ENA_API_PASSWORD) if auth
+                                    else "-q", "-t", "5", "-O", dest, url]
                 retcode = call(download_command)
                 if retcode:
                     logging.error("Error downloading the file from " + url)
@@ -540,6 +551,55 @@ class AbstractDataFetcher(ABC):
                             "Too many failed attempts. Program will exit now. " +
                             "Try again to fetch the data in interactive mode (-i option)!")
                         sys.exit(1)
+
+    def download_lftp(self, dest, url):
+        server = 'ftp.dcc-private.ebi.ac.uk'
+        path_list = url.split('ebi.ac.uk/')[-1].split('/')[:-1]
+        path = '/'.join(path_list)
+        file_name = url.split('/')[-1]
+        attempt = 0
+        while attempt <= 3:
+            try:
+                with ftplib.FTP(server) as ftp:
+                    logging.info("Downloading file from FTP server..." + url)
+                    logging.info('Logging in...')
+                    ftp.login(self.ENA_API_USER, self.ENA_API_PASSWORD)
+                    ftp.cwd(path)
+                    logging.info('Getting the file...')
+                    # store with the same name
+                    with open(dest, 'wb') as output_file:
+                        ftp.retrbinary('RETR ' + file_name, output_file.write)
+                    logging.info('File ' + dest + ' downloaded.')
+                    return True
+            except ftplib.all_errors as e:
+                logging.error(e)
+                attempt += 1
+        else:
+            return False
+
+    #no need to detect public or private anymore. Using same ftp. How do we find statuses..suppressed etc?
+    def evaluate_statues(self, status_ids):
+        logging.info("Evaluating assembly statuses...")
+        if len(status_ids) != 1:
+            logging.warning("Detected different statuses {statuses} "
+                            "(e.g. private and public) within the same study.".format(statuses=status_ids))
+            logging.warning("Cannot handle this at the moment. Program will exit now!")
+            sys.exit(1)
+        else:
+            status_id = status_ids.pop()
+            # 2 = private and 4 = public and 7 == temp suppressd
+            if status_id == 2:
+                return 0
+            elif status_id == 4:
+                return 1
+            elif status_id == 7:
+                logging.warning("Study assemblies are temporarily suppressed!")
+                logging.warning(self.PROGRAM_EXIT_MSG)
+                sys.exit(1)
+            else:
+                logging.warning("Unsupported analysis status id found: {status_id}".format(status_id=status_id))
+                logging.warning(self.PROGRAM_EXIT_MSG)
+                sys.exit(1)
 
     @staticmethod
     def get_md5_file(filename):

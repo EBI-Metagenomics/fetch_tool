@@ -3,6 +3,7 @@ import logging
 import os
 import requests
 import gzip
+import json
 
 import sys
 
@@ -24,12 +25,16 @@ class Analysis(object):
 
 
 class FetchAssemblies(AbstractDataFetcher):
-    ENA_PORTAL_API_URL = 'https://www.ebi.ac.uk/ena/portal/api/filereport?accession={0}' \
-                         '&result=analysis' \
-                         '&fields=analysis_accession,study_accession,secondary_study_accession,sample_accession,' \
-                         'secondary_sample_accession,analysis_title,analysis_type,center_name,first_public,' \
-                         'last_updated,study_title,analysis_alias,study_alias,submitted_md5,submitted_ftp,' \
-                         'generated_md5,generated_ftp,sample_alias,broker_name,sample_title&download=true'
+    ENA_PORTAL_API_URL = 'https://www.ebi.ac.uk/ena/portal/api/search?dataPortal=metagenome&dccDataOnly=false&result=' \
+                         'analysis&format=json&query=secondary_study_accession=%22{0}%22%20AND%20assembly_type=%22{1}%22&' \
+                         'fields=analysis_accession,study_accession,secondary_study_accession,sample_accession,' \
+                         'secondary_sample_accession,analysis_title,analysis_type,center_name,first_public,last_updated' \
+                         ',study_title,analysis_alias,study_alias,submitted_md5,submitted_ftp,generated_md5,' \
+                         'generated_ftp,sample_alias,broker_name,sample_title,assembly_type&download=true'
+    ENA_WGS_SET_API_URL = 'https://www.ebi.ac.uk/ena/portal/api/search?result=wgs_set&query=study_accession=' \
+                          '%22{0}%22&fields=study_accession,assembly_type,scientific_name,fasta_file&format=tsv'
+
+    #http: // www.ebi.ac.uk / ena / data / warehouse / filereport?accession = {0} & result = read_run & fields =
 
     PROGRAM_EXIT_MSG = "Program will exit now!"
 
@@ -50,19 +55,20 @@ class FetchAssemblies(AbstractDataFetcher):
         # TODO: Also the older INSDC style metagenome assemblies produced by MGnify are not support that way at moment
         # TODO: The returned assembly type for those is an empty string, this needs to be handle differently
         # TODO: I imagine you could retrieve all assembly types and filter these empty stringed assembly types
-        assembly_group.add_argument('--assembly-type', help="Assembly type",
+        parser.add_argument('--assembly-type', help="Assembly type",
                                     choices=["primary metagenome", "Metagenome-Assembled Genome (MAG)",
-                                             "binned metagenome", "metatranscriptome", "indsc-like metagenome"],
+                                             "binned metagenome", "metatranscriptome"],
                                     default="primary metagenome")
         assembly_group.add_argument("--assembly-list", help="File containing line-separated assembly accessions")
+
         return parser
 
     def _validate_args(self):
         if not any([self.args.assemblies, self.args.assembly_list, self.args.projects, self.args.project_list]):
             raise ValueError('No data specified, please use -as, --assembly-list, -p or --project-list')
-        elif not self.args.private and not (self.args.projects or self.args.project_list):
-            raise NotImplementedError('Fetching studies from assemblies via FTP is not supported due '
-                                      'to performance issues, please use --private mode')
+        #elif not self.args.private and not (self.args.projects or self.args.project_list):
+        #    raise NotImplementedError('Fetching studies from assemblies via FTP is not supported due '
+        #                              'to performance issues, please use --private mode')
 
     def _process_additional_args(self):
         self.assembly_type = self.args.assembly_type
@@ -73,27 +79,44 @@ class FetchAssemblies(AbstractDataFetcher):
             self.assemblies = self.args.assemblies
 
         if not self.args.projects and not self.args.project_list:
-            logging.info('Fetching projects from list of assemblies')
-            self.args.projects = self._get_project_accessions_from_assemblies(self.assemblies)
+            logging.error('Please specify the secondary project ID')
+            logging.warning(self.PROGRAM_EXIT_MSG)
+            sys.exit(1)
 
-    def _get_project_accessions_from_assemblies(self, assemblies):
-        self.init_era_dao()
-        # Get all generated study data from ENA
-        study_records = ERADAO(self.eradao).retrieve_study_accessions_from_analyses(assemblies)
-        return [s['STUDY_ID'] for s in study_records]
+    def _retrieve_project_info_from_api(self, project_accession):
+        #self._retrieve_insdc_assemblies(project_accession)
+        data = self._retrieve_ena_url(self.ENA_PORTAL_API_URL.format(project_accession, self.assembly_type))
+        logging.info("Retrieved {count} assemblies for study {project_accession} from "
+                     "the ENA Portal API.".format(count=len(data), project_accession=project_accession))
+        for d in data:
+            print('file name is {}'.format(d['generated_ftp']))
+            if d['analysis_type'] != 'SEQUENCE_ASSEMBLY' or d['generated_ftp'] == '':
+               data.remove(d)
+        #data_filtered = [d for d in data if d['analysis_type'] == 'SEQUENCE_ASSEMBLY' and len(d['generated_ftp'])]
+        return list(map(self.map_datafields_ftp_2_data, data))
 
-    @staticmethod
-    def _get_study_assembly_accessions(project_data):
-        return list(filter(bool, [entry['ANALYSIS_ID'] for entry in project_data]))
+
+    def map_datafields_ftp_2_data(self, assemblydata):
+        is_submitted_file = assemblydata['submitted_ftp'] is not ''
+        assemblydata['STUDY_ID'] = assemblydata.pop('secondary_study_accession')
+        assemblydata['SAMPLE_ID'] = assemblydata.pop('secondary_sample_accession')
+        assemblydata['DATA_FILE_PATH'] = assemblydata.pop('generated_ftp')
+        assemblydata['ANALYSIS_ID'] = assemblydata.pop('analysis_accession')
+        is_valid_filetype = self._is_rawdata_filetype(assemblydata['DATA_FILE_PATH']) #filter empties
+        if is_valid_filetype:
+            assemblydata['DATA_FILE_PATH'], assemblydata['file'], assemblydata['MD5'] = self._get_raw_filenames(
+                assemblydata['DATA_FILE_PATH'],
+                assemblydata.pop('generated_md5'),
+                assemblydata['ANALYSIS_ID'],
+                is_submitted_file)
+            return assemblydata
 
     def _filter_accessions_from_args(self, assembly_data, assembly_accession_field):
+        print('assembly data {} \n'.format(str(len(assembly_data))))
         if self.assemblies:
-            assembly_data = list(filter(lambda r: r[assembly_accession_field] in self.assemblies, assembly_data))
-        return assembly_data
+            data = list(filter(lambda r: (r[assembly_accession_field] in self.assemblies), assembly_data))
+        return data
 
-    @staticmethod
-    def _filter_assembly_accessions(assembly_accessions, existing_assembly_accessions):
-        return list(filter(lambda r: r not in existing_assembly_accessions, assembly_accessions))
 
     def map_project_info_db_row(self, assembly):
         return {
@@ -106,57 +129,8 @@ class FetchAssemblies(AbstractDataFetcher):
             'md5': assembly['MD5']
         }
 
-    def _get_assembly_metadata(self, secondary_project_accession):
-        generated_files = ERADAO(self.eradao).retrieve_assembly_generated_files(secondary_project_accession)
-        if not generated_files:
-            logging.info("No generated files for this study available in the database. Retrieving submitted files now.")
-            return ERADAO(self.eradao).retrieve_assembly_submitted_files(secondary_project_accession)
-        else:
-            logging.info("Successfully retrieve generated files from database.")
-            return generated_files
-
     def _get_study_wgs_analyses(self, primary_project_accession):
         return ENADAO(self.enadao).retrieve_assembly_data(primary_project_accession)
-
-    def _retrieve_project_info_db(self, project_accession):
-        # Get all generated study data from ENA
-        metadata_analyses = self._get_assembly_metadata(project_accession)
-        logging.info("Retrieved {} files from database.".format(len(metadata_analyses)))
-        project_acc = metadata_analyses[0]['PROJECT_ID']
-        # wgs_analyses = self._get_study_wgs_analyses(project_acc)
-        #
-        # study_analyses = self._combine_analyses(metadata_analyses, wgs_analyses)
-        # Allow force mode to bypass filtering
-        for data in metadata_analyses:
-            is_submitted_file = data['DATA_FILE_ROLE'] == 'SUBMITTED_FILE'
-            data['DATA_FILE_PATH'], data['file'], data['MD5'] = self._get_raw_filenames(
-                data['DATA_FILE_PATH'],
-                data['MD5'],
-                data['ANALYSIS_ID'],
-                is_submitted_file)
-        print(metadata_analyses[0])
-        return metadata_analyses
-
-    def _retrieve_generated_file_paths_from_db(self, project_accession, is_public):
-        # Get all generated study data from ENA
-        logging.info("Retrieving download paths from ENA's database...")
-        metadata_analyses = self._get_assembly_metadata(project_accession)
-        logging.info("Retrieved {} download paths from database.".format(len(metadata_analyses)))
-        # project_acc = metadata_analyses[0]['PROJECT_ID']
-        # wgs_analyses = self._get_study_wgs_analyses(project_acc)
-        #
-        # study_analyses = self._combine_analyses(metadata_analyses, wgs_analyses)
-        # Allow force mode to bypass filtering
-        for data in metadata_analyses:
-            is_submitted_file = data['DATA_FILE_ROLE'] == 'SUBMITTED_FILE'
-            data['DATA_FILE_PATH'], data['file'], data['MD5'] = self._get_raw_filenames(
-                data['DATA_FILE_PATH'],
-                data['MD5'],
-                data['ANALYSIS_ID'],
-                is_submitted_file)
-            data['STATUS'] = is_public
-        print(metadata_analyses[0])
-        return metadata_analyses
 
     @staticmethod
     def _combine_analyses(metadata, wgs):
@@ -168,153 +142,46 @@ class FetchAssemblies(AbstractDataFetcher):
                                      'FILENAME': assembly['WGS_ACC'],
                                      'GC_ID': assembly['GC_ID']}
         for analysis in metadata:
-            analysis_id = analysis['ANALYSIS_ID']
+            analysis_id = analysis['accession']
             if analysis_id in wgs_dict:
                 new_analysis = analysis.copy()
                 new_analysis.update(wgs_dict[analysis_id])
+                new_analysis['DATA_FILE_PATH'] = new_analysis.pop('fasta_file')
                 combine_analyses.append(new_analysis)
         return combine_analyses
 
-    @staticmethod
-    def is_trusted_ftp_data(data, trusted_brokers):
-        is_trusted = data['submitted_ftp'] != '' and \
-                     (data.get('broker_name') in trusted_brokers
-                      or data.get('center_name') in trusted_brokers)
-        if not is_trusted:
-            logging.warning('Study contains untrusted broker {} and centername {}'.format(data.get('broker_name'),
-                                                                                          data.get('center_name')))
-        return is_trusted
-
-    def _filter_ftp_broker_names(self, data):
-        trusted_brokers = self.config['trustedBrokers']
-        return [d for d in data if self.is_trusted_ftp_data(d, trusted_brokers)]
-
-    def map_datafields_ftp_2_db(self, assemblydata):
-        is_submitted_file = assemblydata['submitted_ftp'] is not ''
-        assemblydata['STUDY_ID'] = assemblydata.pop('secondary_study_accession')
-        assemblydata['SAMPLE_ID'] = assemblydata.pop('secondary_sample_accession')
-        assemblydata['DATA_FILE_PATH'] = assemblydata.pop('submitted_ftp')
-        assemblydata['ANALYSIS_ID'] = assemblydata.pop('analysis_accession')
-        assemblydata['DATA_FILE_PATH'], assemblydata['file'], assemblydata['MD5'] = self._get_raw_filenames(
-            assemblydata['DATA_FILE_PATH'],
-            assemblydata.pop('submitted_md5'),
-            assemblydata['ANALYSIS_ID'],
-            is_submitted_file)
-        return assemblydata
-
-    def _retrieve_project_info_from_api(self, project_accession):
-        data = self._retrieve_ena_url(self.ENA_PORTAL_API_URL.format(project_accession))
-        logging.info("Retrieved {count} assemblies for study {project_accession} from "
-                     "the ENA Portal API.".format(count=len(data), project_accession=project_accession))
-        data = [d for d in data if d['analysis_type'] == 'SEQUENCE_ASSEMBLY']
-        insertable_assemblies = self._filter_ftp_broker_names(data)
-        return list(map(self.map_datafields_ftp_2_db, insertable_assemblies))
-
-    project_webin_accounts = {}
-
-    def _retrieve_webin_account_id(self, project_accession):
-        if project_accession not in self.project_webin_accounts:
-            results = ERADAO(self.eradao).retrieve_webin_accound_id(project_accession)
-            self.project_webin_accounts[project_accession] = results[0]['SUBMISSION_ACCOUNT_ID']
-        return self.project_webin_accounts[project_accession]
-
-    def get_scientific_name(self, analysis_accession):
-        '''
-        Function to get analysis_accession (ERZ_id), analysis_alias (file_name) and scientific_name for all assemblies of a project
-        input: study_id
-        input: dictionary generated by the extract_data function (dic[ERZ_id]:[contig_name, GCA id])
-        input API_URL: url for the ENA API
-        output: api_dic: dictionary with ERZ_id as keys and values are list of file_name and scientific_name
-        '''
-        payload = {
-            "result": "analysis",
-            "query": 'analysis_accession="{0}"'.format(analysis_accession),
-            "fields": "analysis_accession,scientific_name",
-            "dataPortal": "metagenome",
-            "format": "json",
-        }
-        headers = {'content-type': 'application/x-www-form-urlencoded'}
-        res = requests.post(
-            self.config['enaAPIUrl'] + 'search/',
-            headers=headers,
-            data=payload,
-            auth=(self.config['enaAPIUsername'], self.config['enaAPIPassword'])
-        )
-        if res.status_code == 401:
-            raise EnvironmentError('Error 401: Authentication credentials missing for ENA API')
-
-        results = res.json()
-        if len(results) == 0:
-            logging.error("No results received for analysis object: {0}".format(
-                analysis_accession))
-            logging.error("Shutting down the program now!")
-        elif len(results) > 1:
-            raise ValueError("Unexpected number of results received for analysis object: {0}".format(
-                analysis_accession))
+    def _retrieve_insdc_assemblies(self, study_accession):
+        # Step 1: Retrieve analysis results including assembly type from ENA Portal API
+        mapped_data = []
+        json_data = self._retrieve_ena_url(self.ENA_WGS_SET_API_URL.format('PRJEB22493'))
+        print(json_data)
+        logging.info("Retrieved {count} assemblies of type wgs_set from ENA Portal API.".format(count=len(json_data)))
+        if len(json_data):
+            study_assembly_data = self._get_study_wgs_analyses(study_accession)
+            study_analyses = self._combine_analyses(json_data, study_assembly_data)
+            self._download_insdc_assemblies(study_analyses, study_accession)
+            for data in study_analyses:
+                mapped_out = self.map_insdc_data_for_files(data, study_accession)
+                mapped_data.append(mapped_out)
+            self.add_insdc_to_file(mapped_data, study_accession)
         else:
-            scientific_name = results[0]['scientific_name']
-            return scientific_name
+            logging.info("No INSDC style assemblies. Skipping...")
 
-    def download_raw_files(self, project_accession, new_assemblies):
-        raw_dir = self.get_project_rawdir(project_accession)
-        os.makedirs(raw_dir, exist_ok=True)
-        for assembly in new_assemblies:
-            download_sources = assembly['DATA_FILE_PATH']
-            filenames = assembly['file']
-            file_md5s = assembly['MD5']
-            is_public = assembly['STATUS']
-            for dl_file, dl_name in zip(download_sources, filenames):
-                dest = os.path.join(raw_dir, dl_name)
-                dir, basename = os.path.split(dest)
-                name, ext = os.path.splitext(basename)
-                is_submitted_file = assembly['DATA_FILE_ROLE'] == 'SUBMITTED_FILE'
-                if is_submitted_file:
-                    unmapped_dest = os.path.join(dir, name + '_unmapped' + ext)
-                    was_downloaded = self.download_raw_file(dl_file, unmapped_dest, file_md5s, is_public)
-                    mapped_md5 = self.get_md5_file(dl_file)
-                    if (not self._is_file_valid(dest, mapped_md5)) or was_downloaded or self.force_mode:
-                        logging.info("Processing the following submitted file: {}. Renaming FASTA header now".format(dl_file))
-                        self.rename_fasta_headers(unmapped_dest, dest, assembly['ANALYSIS_ID'])
+    def _download_insdc_assemblies(self, study_analyses, study_accession):
+        raw_dir = self.get_project_rawdir(study_accession)
+        for study in study_analyses:
+            filename = study['ASSEMBLY_ID'] + '.fasta.gz'
+            dest = os.path.join(raw_dir, filename)
+            unmapped_dest = dest + '.unmapped'
+            try:
+                logging.info("Downloading INSDC style assembly {}".format(filename))
+                self.download_ftp(dest, study['DATA_FILE_PATH'], auth=False)
+                self.rename_fasta_headers(unmapped_dest, dest, study['ASSEMBLY_ID'])
+            except Exception as e:
+                if self.ignore_errors:
+                    logging.warning(e)
                 else:
-                    self.download_raw_file(dl_file, dest, file_md5s, is_public)
-
-
-    def get_contig_range_from_api(self, project_accession, analysis_id):
-        '''
-        Function to get the contig range from the ENA swagger
-        input: ERZ_id: individual analysis_id
-        output: string corresponding to the names of the first and last contigs separated by hyphen (ex: OFEO01000001-OFEO01173648)
-        '''
-        logging.debug('Getting contig names')
-
-        webin = self._retrieve_webin_account_id(project_accession)
-
-        url = 'https://www.ebi.ac.uk/ena/submit/report/analysis-process/{}/'.format(analysis_id)
-        payload = {"format": "json"}
-        headers = {"Accept": "*/*"}
-        creds = (webin, self.config['enaMasterPassword'])
-        res = requests.get(
-            url,
-            headers=headers,
-            data=payload,
-            auth=creds
-        )
-        data = res.json()[0]
-        data_contig = data['report']['acc'].split(",")[0]
-        logging.debug('Got contig names')
-
-        return data_contig
-
-    @staticmethod
-    def parse_wgs_seq_acc_range(line):
-        """
-            Parses a line in format scaffolds:FWWM01000001-FWWM01391746
-            in format <assembly-type>:<wgs seq set acc><number>-<wgs seq set acc><number>
-        :param line:
-        :return:
-        """
-        wgs_seq_set_acc, start, end = re.findall(r'.+:(.{6})(\d+)-\1(\d+)', line)[0]
-        return wgs_seq_set_acc, int(start), int(end)
+                    raise e
 
     def rename_fasta_headers(self, unmapped_fasta_file, fasta_file, analysis_id):
         counter = 1
@@ -332,117 +199,23 @@ class FetchAssemblies(AbstractDataFetcher):
         logging.debug('Finished re-mapping fasta file')
         self.write_md5(fasta_file)
 
-    def retrieve_project(self, study_accession):
-        # Step 1: Retrieve analysis results including assembly type from ENA Portal API
-        json_data = self.retrieve_study_analysis_results(study_accession)
-        logging.info("Retrieved {count} assemblies of type {assembly_type} from ENA Portal API.".
-                     format(count=len(json_data), assembly_type=self.assembly_type))
-        # Convert JSON into a more handle format
-        study_analyses, status_ids = self.convert_api_response(json_data)
-        is_public = self.evaluate_statues(status_ids)
-        return self.retrieve_download_paths(study_accession, study_analyses, is_public)
-
-    def retrieve_study_analysis_results(self, study_accession):
-        logging.info("Retrieving study assemblies from ENA Portal API...")
-        query = '(study_accession=\"{study_accession}\" ' \
-                'OR secondary_study_accession=\"{study_accession}\") '.format(study_accession=study_accession)
-        query += ' AND assembly_type=\"{assembly_type}\"'.format(assembly_type=self.assembly_type)
-        fields = "status_id,assembly_type"
-        r = self.build_and_post_authenticated_search_request(result="analysis", query=query, fields=fields)
-
-        return r.json()
-
-    def build_and_post_authenticated_search_request(self,
-                                                    result, query, fields,
-                                                    data_portal="metagenome",
-                                                    dcc_data_only=False,
-                                                    output_format="json",):
-        """
-            Builds and posts an authenticated search request.
-
-        :return: server response
-        """
-        headers = {'Accept': '*/*', 'Content-Type': 'application/x-www-form-urlencoded'}
-        data = {
-            'dataPortal': data_portal,
-            'dccDataOnly': dcc_data_only,
-            'result': result,
-            'query': query,
-            'fields': fields,
-            'format': output_format
-        }
-        r = requests.post(self.config['enaAPIUrl'] + 'search', headers=headers, data=data,
-                          auth=(self.config['enaAPIUsername'], self.config['enaAPIPassword']))
-        if r.status_code != 200:
-            if r.status_code == 204:
-                logging.warning("Could not retrieve any assemblies!")
-            elif r.status_code == 401:
-                logging.warning("Invalid Username or Password!")
-            else:
-                logging.warning("Received the following unknown response code from the "
-                              "Portal API server:\n{}".format(r.status_code))
-            logging.warning(self.PROGRAM_EXIT_MSG)
-            sys.exit(1)
-        else:
-            return r
-
     @staticmethod
-    def convert_api_response(json_data):
-        """
-        :param json_data: JSON data is formatted as a list of dictionaries
-        :rtype List of analysis
-        """
-        logging.info("Converting API response...")
-        study_analyses = {}
-        status_ids = set()
-        for d in json_data:
-            analysis_accession = d['analysis_accession']
-            study_analyses[analysis_accession] = Analysis(analysis_accession, d['assembly_type'], d['status_id'])
-            status_ids.add(int(d['status_id']))
-        logging.info("API response conversion finished.")
-        return study_analyses, status_ids
+    def map_insdc_data_for_files(self, insdc_data, study_accession,):
+        return {
+            'study_id': study_accession,
+            'sample_id': insdc_data['SAMPLE_ID'],
+            'analysis_id': insdc_data['accession'],
+            'file': insdc_data['ASSEMBLY_ID'] + '.fasta.gz',
+            'file_path': insdc_data['DATA_FILE_PATH'],
+        }
 
-    def retrieve_download_paths(self, study_accession, study_analyses, is_public):
-        if self.assembly_type == "primary metagenome":
-            if is_public:
-                new_analysis = self._retrieve_project_info_from_api(study_accession)
-            else:
-                new_analysis = self._retrieve_generated_file_paths_from_db(study_accession, is_public)
-            # Sanity check
-            if len(study_analyses) != len(new_analysis):
-                logging.warning("The number of assemblies retrieved from the ENA Portal API does NOT match the number"
-                                " of assemblies retrieved the database!")
-                logging.warning(self.PROGRAM_EXIT_MSG)
-                sys.exit(1)
-            return new_analysis
-        else:
-            logging.warning("Assembly type - {assembly_type} - not support yet".
-                            format(assembly_type=self.assembly_type))
-            logging.warning(self.PROGRAM_EXIT_MSG)
-            sys.exit(1)
-
-    def evaluate_statues(self, status_ids):
-        logging.info("Evaluating assembly statuses...")
-        if len(status_ids) != 1:
-            logging.warning("Detected different statuses {statuses} "
-                            "(e.g. private and public) within the same study.".format(statuses=status_ids))
-            logging.warning("Cannot handle this at the moment. Program will exit now!")
-            sys.exit(1)
-        else:
-            status_id = status_ids.pop()
-            # 2 = private and 4 = public and 7 == temp suppressd
-            if status_id == 2:
-                return 0
-            elif status_id == 4:
-                return 1
-            elif status_id == 7:
-                logging.warning("Study assemblies are temporarily suppressed!")
-                logging.warning(self.PROGRAM_EXIT_MSG)
-                sys.exit(1)
-            else:
-                logging.warning("Unsupported analysis status id found: {status_id}".format(status_id=status_id))
-                logging.warning(self.PROGRAM_EXIT_MSG)
-                sys.exit(1)
+    def add_insdc_to_file(self, data, study_accession):
+        headers = ['study_id', 'sample_id', 'analysis_id', 'file', 'file_path']
+        with open(self.get_project_insdc_txt_file(study_accession), 'w') as txt_file:
+            txt_file.write('\t'.join(headers) +'/n')
+            for d in data:
+                json.dump(d, txt_file)
+                txt_file.write('/n')
 
 def main():
     data_fetcher = FetchAssemblies()
