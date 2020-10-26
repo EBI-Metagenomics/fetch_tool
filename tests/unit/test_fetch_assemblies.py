@@ -15,8 +15,8 @@ class TestFetchAssemblies:
 
         args = fetch.args
         accepted_args = {'projects', 'project_list', 'dir', 'verbose', 'force',
-                         'private', 'interactive', 'config_file', 'assemblies', 'assembly_list', 'fix_desc_file',
-                         'ignore_errors'}
+                         'private', 'interactive', 'config_file', 'assemblies', 'assembly_list', 'assembly-type',
+                         'fix_desc_file', 'ignore_errors'}
         assert set(vars(args)) == accepted_args
 
     def test_validate_args_should_raise_exception_as_no_data_specified(self):
@@ -37,15 +37,18 @@ class TestFetchAssemblies:
         fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225', '--assembly-list', assembly_file])
         assert fetch.assemblies == assemblies
 
+    #add test for MAGs
+
     def test_validate_args_should_raise_error_if_fetching_studies_without_project_in_public_mode(self, tmpdir):
         assemblies = ['ERZ477685']
         tmpdir = str(tmpdir)
         runfile = os.path.join(tmpdir, 'assemblies.txt')
+        type = 'primary metagenome'
         with open(runfile, 'w') as f:
             f.write('\n'.join(assemblies))
 
         with pytest.raises(NotImplementedError):
-            afa.FetchAssemblies(argv=['--assembly-list', runfile])
+            afa.FetchAssemblies(argv=['--assembly-list', runfile, '--assembly-type', type])
 
     def test_get_project_accessions_from_assemblies_should_return_empty(self):
         assert [] == afa.FetchAssemblies._get_study_assembly_accessions([])
