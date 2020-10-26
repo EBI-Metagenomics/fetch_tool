@@ -441,17 +441,19 @@ class AbstractDataFetcher(ABC):
         while True:
             try:
                 response = requests.get(url, auth=(self.config['enaAPIUsername'], self.config['enaAPIPassword']))
-                break
-            except requests.exceptions.RequestException as e: #check syntax
-                if response.status_code != 200:
-                    if response.status_code == 204:
-                        logging.warning("Could not retrieve any assemblies!")
-                    elif response.status_code == 401:
-                        logging.warning("Invalid Username or Password!")
-                    else:
-                        logging.warning("Received the following unknown response code from the "
-                                        "Portal API server:\n{}".format(r.status_code))
-                attempt += 1
+                if response.status_code == 200:
+                    break
+                if response.status_code == 204:
+                    logging.warning("Could not retrieve any assemblies!")
+                elif response.status_code == 401:
+                    logging.warning("Invalid Username or Password!")
+                else:
+                    logging.warning("Received the following unknown response code from the "
+                                    "Portal API server:\n{}".format(r.status_code))
+            except requests.exceptions.RequestException as e:  # check syntax
+                logging.warning("Request exception. "
+                                "Exception:\n {}".format(e))
+            attempt += 1
             if attempt >= self.config['url_max_attempts']:
                 logging.critical("Failed to open url " + url + " after " + str(
                     attempt) + " attempts")
