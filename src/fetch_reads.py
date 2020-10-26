@@ -54,6 +54,7 @@ class FetchReads(AbstractDataFetcher):
         for d in data:
             if d['fastq_ftp'] == '':
                 data.remove(d)
+                logging.info("The ftp location for run {} is not available yet".format(d['run_accession']))
         return list(map(self.map_datafields_ftp_2_data, data))
 
     def map_datafields_ftp_2_data(self, rundata):

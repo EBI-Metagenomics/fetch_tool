@@ -89,9 +89,12 @@ class FetchAssemblies(AbstractDataFetcher):
         logging.info("Retrieved {count} assemblies for study {project_accession} from "
                      "the ENA Portal API.".format(count=len(data), project_accession=project_accession))
         for d in data:
-            print('file name is {}'.format(d['generated_ftp']))
-            if d['analysis_type'] != 'SEQUENCE_ASSEMBLY' or d['generated_ftp'] == '':
-               data.remove(d)
+            if d['analysis_type'] != 'SEQUENCE_ASSEMBLY':
+                data.remove(d)
+            if not d['generated_ftp']:
+                data.remove(d)
+                logging.info("The generated ftp location for run {} is not available yet".format(d['analysis_accession']))
+
         #data_filtered = [d for d in data if d['analysis_type'] == 'SEQUENCE_ASSEMBLY' and len(d['generated_ftp'])]
         return list(map(self.map_datafields_ftp_2_data, data))
 
@@ -102,7 +105,7 @@ class FetchAssemblies(AbstractDataFetcher):
         assemblydata['SAMPLE_ID'] = assemblydata.pop('secondary_sample_accession')
         assemblydata['DATA_FILE_PATH'] = assemblydata.pop('generated_ftp')
         assemblydata['ANALYSIS_ID'] = assemblydata.pop('analysis_accession')
-        is_valid_filetype = self._is_rawdata_filetype(assemblydata['DATA_FILE_PATH']) #filter empties
+        is_valid_filetype = self._is_rawdata_filetype(assemblydata['DATA_FILE_PATH']) #filter empties and non fasta
         if is_valid_filetype:
             assemblydata['DATA_FILE_PATH'], assemblydata['file'], assemblydata['MD5'] = self._get_raw_filenames(
                 assemblydata['DATA_FILE_PATH'],
@@ -115,7 +118,9 @@ class FetchAssemblies(AbstractDataFetcher):
         print('assembly data {} \n'.format(str(len(assembly_data))))
         if self.assemblies:
             data = list(filter(lambda r: (r[assembly_accession_field] in self.assemblies), assembly_data))
-        return data
+            return data
+        else:
+            return assembly_data
 
 
     def map_project_info_db_row(self, assembly):
