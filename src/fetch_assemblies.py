@@ -31,6 +31,9 @@ class FetchAssemblies(AbstractDataFetcher):
                          'secondary_sample_accession,analysis_title,analysis_type,center_name,first_public,last_updated' \
                          ',study_title,analysis_alias,study_alias,submitted_md5,submitted_ftp,generated_md5,' \
                          'generated_ftp,sample_alias,broker_name,sample_title,assembly_type&download=true'
+    ENA_PORTAL_API_BY_RUN = 'https://www.ebi.ac.uk/ena/portal/api/search?dataPortal=metagenome&dccDataOnly=false&result' \
+                            '=analysis&format=json&query=analysis_accession=%22{0}%22%20AND%20assembly_type=%22{1}%22&' \
+                            'fields=secondary_study_accession&download=true'
     ENA_WGS_SET_API_URL = 'https://www.ebi.ac.uk/ena/portal/api/search?result=wgs_set&query=study_accession=' \
                           '%22{0}%22&fields=study_accession,assembly_type,scientific_name,fasta_file&format=tsv'
 
@@ -79,9 +82,12 @@ class FetchAssemblies(AbstractDataFetcher):
             self.assemblies = self.args.assemblies
 
         if not self.args.projects and not self.args.project_list:
-            logging.error('Please specify the secondary project ID')
-            logging.warning(self.PROGRAM_EXIT_MSG)
-            sys.exit(1)
+            logging.info('Fetching projects from list of assemblies')
+            self.args.projects = self._get_project_accessions_from_assemblies(self.assemblies)
+
+            #logging.error('Please specify the secondary project ID')
+            #logging.warning(self.PROGRAM_EXIT_MSG)
+            #sys.exit(1)
 
     def _retrieve_project_info_from_api(self, project_accession):
         #self._retrieve_insdc_assemblies(project_accession)
@@ -115,7 +121,6 @@ class FetchAssemblies(AbstractDataFetcher):
             return assemblydata
 
     def _filter_accessions_from_args(self, assembly_data, assembly_accession_field):
-        print('assembly data {} \n'.format(str(len(assembly_data))))
         if self.assemblies:
             data = list(filter(lambda r: (r[assembly_accession_field] in self.assemblies), assembly_data))
             return data
@@ -159,7 +164,6 @@ class FetchAssemblies(AbstractDataFetcher):
         # Step 1: Retrieve analysis results including assembly type from ENA Portal API
         mapped_data = []
         json_data = self._retrieve_ena_url(self.ENA_WGS_SET_API_URL.format('PRJEB22493'))
-        print(json_data)
         logging.info("Retrieved {count} assemblies of type wgs_set from ENA Portal API.".format(count=len(json_data)))
         if len(json_data):
             study_assembly_data = self._get_study_wgs_analyses(study_accession)
@@ -221,6 +225,14 @@ class FetchAssemblies(AbstractDataFetcher):
             for d in data:
                 json.dump(d, txt_file)
                 txt_file.write('/n')
+
+    def _get_project_accessions_from_assemblies(self, assemblies):
+        project_list = set()
+        for assembly in assemblies:
+            data = self._retrieve_ena_url(self.ENA_PORTAL_API_BY_RUN.format(assembly, self.assembly_type))
+            [project_list.add(d['secondary_study_accession']) for d in data]
+        return project_list
+
 
 def main():
     data_fetcher = FetchAssemblies()

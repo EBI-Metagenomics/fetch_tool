@@ -15,6 +15,9 @@ class FetchReads(AbstractDataFetcher):
                           'secondary_study_accession,sample_accession,secondary_sample_accession,experiment_accession,' \
                           'run_accession,instrument_model,library_layout,fastq_ftp,fastq_md5,submitted_ftp,submitted_md5,' \
                           'library_strategy,broker_name,library_source&download=true'
+    ENA_PORTAL_API_BY_RUN = 'https://www.ebi.ac.uk/ena/portal/api/search?dataPortal=metagenome&dccDataOnly=false&result' \
+                            '=read_run&format=json&query=run_accession=%22{0}%22&fields=secondary_study_accession&' \
+                            'download=true'
 
     def __init__(self, argv=None):
         self.runs = None
@@ -43,9 +46,8 @@ class FetchReads(AbstractDataFetcher):
             self.runs = self.args.runs
 
         if not self.args.projects and not self.args.project_list:
-            logging.error('Please specify the secondary project ID')
-            logging.warning(self.PROGRAM_EXIT_MSG)
-            sys.exit(1)
+            logging.info('Fetching projects from list of assemblies')
+            self.args.projects = self._get_project_accessions_from_runs(self.runs)
 
     def _retrieve_project_info_from_api(self, project_accession):
         data = self._retrieve_ena_url(self.ENA_PORTAL_API_URL.format(project_accession))
@@ -96,6 +98,13 @@ class FetchReads(AbstractDataFetcher):
             'library_strategy': run['LIBRARY_STRATEGY'],
             'library_source': run['LIBRARY_SOURCE']
         }
+
+    def _get_project_accessions_from_runs(self, runs):
+        project_list = set()
+        for run in runs:
+            data = self._retrieve_ena_url(self.ENA_PORTAL_API_BY_RUN.format(run))
+            [project_list.add(d['secondary_study_accession']) for d in data]
+        return project_list
 
 
 def main():
