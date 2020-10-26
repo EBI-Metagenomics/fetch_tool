@@ -15,7 +15,7 @@ class TestFetchAssemblies:
 
         args = fetch.args
         accepted_args = {'projects', 'project_list', 'dir', 'verbose', 'force',
-                         'private', 'interactive', 'config_file', 'assemblies', 'assembly_list', 'assembly-type',
+                         'private', 'interactive', 'config_file', 'assemblies', 'assembly_list', 'assembly_type',
                          'fix_desc_file', 'ignore_errors'}
         assert set(vars(args)) == accepted_args
 
