@@ -457,7 +457,7 @@ class AbstractDataFetcher(ABC):
             if attempt >= self.config['url_max_attempts']:
                 logging.critical("Failed to open url " + url + " after " + str(
                     attempt) + " attempts")
-                #sys.exit(1)
+                sys.exit(0)
         data = response.json()
         return data
 
