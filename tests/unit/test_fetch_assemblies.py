@@ -37,7 +37,11 @@ class TestFetchAssemblies:
         fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225', '--assembly-list', assembly_file])
         assert fetch.assemblies == assemblies
 
-    #add test for MAGs
+    def test_process_additional_args_args_should_set_assemblies_from_type(self):
+        mags = ['ERZ1069976']
+        type = 'Metagenome-Assembled Genome (MAG)'
+        fetch = afa.FetchAssemblies(argv=['-p', 'ERP116715', '--assembly-type', type, '-as'] + mags)
+        assert fetch.assemblies == mags
 
     def test_validate_args_should_raise_error_if_fetching_studies_without_project_in_public_mode(self, tmpdir):
         assemblies = ['ERZ477685']
@@ -51,15 +55,11 @@ class TestFetchAssemblies:
             afa.FetchAssemblies(argv=['--assembly-list', runfile, '--assembly-type', type])
 
     def test_get_project_accessions_from_assemblies_should_return_empty(self):
-        assert [] == afa.FetchAssemblies._get_study_assembly_accessions([])
-
-    def test_get_project_accessions_from_assemblies_should_raise_keyerror_on_invalid_project_data(self):
-        with pytest.raises(KeyError):
-            afa.FetchAssemblies._get_study_assembly_accessions([{'PROJECT_ID': 'ERP104225'}])
+        assert [] == afa.FetchAssemblies._get_project_accessions_from_assemblies([])
 
     def test_get_project_accessions_from_assemblies_should_return_analysis_id(self):
         assembly_id = 'ERZ477685'
-        assert [assembly_id] == afa.FetchAssemblies._get_study_assembly_accessions([{'ANALYSIS_ID': assembly_id}])
+        assert [assembly_id] == afa.FetchAssemblies._get_project_accessions_from_assemblies([{'ANALYSIS_ID': assembly_id}])
 
     def test_filter_accessions_from_args_should_return_empty(self):
         fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
@@ -77,19 +77,19 @@ class TestFetchAssemblies:
         ]
         assert run_data[0:2] == fetch._filter_accessions_from_args(run_data, 'analysis_id')
 
-    def test_filter_assembly_accessions_should_return_empty(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
-        assert [] == fetch._filter_assembly_accessions([], [])
+    #def test_filter_assembly_accessions_should_return_empty(self):
+        #fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
+        #assert [] == fetch._filter_assembly_accessions([], [])
 
-    def test_filter_assembly_accessions_should_not_return_accession(self):
-        new_acc = 'ERZ477685'
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
-        assert [] == fetch._filter_assembly_accessions([new_acc], ['ERZ477684', new_acc])
+    #def test_filter_assembly_accessions_should_not_return_accession(self):
+        #new_acc = 'ERZ477685'
+        #fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
+        #assert [] == fetch._filter_assembly_accessions([new_acc], ['ERZ477684', new_acc])
 
-    def test_filter_assembly_accessions_should_return_accession(self):
-        new_acc = 'ERZ477685'
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
-        assert [new_acc] == fetch._filter_assembly_accessions([new_acc], ['ERZ477684'])
+    #def test_filter_assembly_accessions_should_return_accession(self):
+        #new_acc = 'ERZ477685'
+        #fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
+        #assert [new_acc] == fetch._filter_assembly_accessions([new_acc], ['ERZ477684'])
 
     def test_map_project_info_db_row_should_copy_fields(self):
         raw_data = {
@@ -124,52 +124,46 @@ class TestFetchAssemblies:
         transform = fetch.map_project_info_db_row(raw_data)
         assert transform['file'] == 'ERZ477685.fasta.gz'
 
-    def test_is_trusted_ftp_data_should_be_trusted_from_broker(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        trusted_brokers = ['EMG']
-        assert fetch.is_trusted_ftp_data({'fasta_ftp': '',
-                                          'submitted_ftp': 'filepath',
-                                          'broker_name': 'EMG'},
-                                         trusted_brokers)
 
-    def test_is_trusted_ftp_data_should_be_trusted_as_generated_data(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        trusted_brokers = ['EMG']
-        assert fetch.is_trusted_ftp_data({'fasta_ftp': 'filepath', 'submitted_ftp': 'filepath', 'broker_name': 'EMG'},
-                                         trusted_brokers)
+    #def test_is_trusted_ftp_data_should_be_trusted_as_generated_data(self):
+        #fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
+        #trusted_brokers = ['EMG']
+        #assert fetch.is_trusted_ftp_data({'fasta_ftp': 'filepath', 'submitted_ftp': 'filepath', 'broker_name': 'EMG'},
+                                         #trusted_brokers)
 
-    def test_filter_ftp_broker_names_should_return_empty(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        assert [] == fetch._filter_ftp_broker_names([])
+    #def test_filter_ftp_broker_names_should_return_empty(self):
+        #fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
+        #assert [] == fetch._filter_ftp_broker_names([])
 
-    def test_filter_ftp_broker_names_should_filter_brokers(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        fetch.config['trustedBrokers'] = ['EMG']
-        run_data = [
-            {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
-            {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
-        ]
-        assert 'EMG' == fetch._filter_ftp_broker_names(run_data)[0]['broker_name']
+    #def test_filter_ftp_broker_names_should_filter_brokers(self):
+        #fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
+        #fetch.config['trustedBrokers'] = ['EMG']
+        #run_data = [
+        #    {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
+        #    {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
+        #]
+        #assert 'EMG' == fetch._filter_ftp_broker_names(run_data)[0]['broker_name']
 
-    def test_filter_ftp_broker_names_should_allow_generated_file(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        fetch.config['trustedBrokers'] = ['EMG']
-        run_data = [
-            {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
-            {'fasta_ftp': 'datafile', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
-        ]
-        assert 1 == len(fetch._filter_ftp_broker_names(run_data))
+    #def test_filter_ftp_broker_names_should_allow_generated_file(self):
+        #fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
+        #fetch.config['trustedBrokers'] = ['EMG']
+        #run_data = [
+        #    {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
+        #    {'fasta_ftp': 'datafile', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
+        #]
+        #assert 1 == len(fetch._filter_ftp_broker_names(run_data))
 
-    def test_map_datafields_ftp_2_db_should_map_all_fields(self):
+    def test_map_datafields_ftp_2_data_should_map_all_fields(self):
         raw_data = {
             'secondary_study_accession': 'ERP104225',
             'secondary_sample_accession': 'ERS599830',
             'analysis_accession': 'ERZ477685',
-            'submitted_ftp': '/tmp/ERP104225/ERZ477685.fasta.gz',
+            'submitted_ftp': '/tmp/ERP104225/ERZ477685_sub.fasta.gz',
+            'generated_ftp': '/tmp/ERP104225/ERZ477685.fasta.gz',
             'submitted_md5': 'md51'
         }
         fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        assert fetch.map_datafields_ftp_2_db(deepcopy(raw_data)) == {
+        assert afa.FetchAssemblies.map_datafields_ftp_2_data(deepcopy(raw_data)) == {
             'STUDY_ID': raw_data['secondary_study_accession'],
             'SAMPLE_ID': raw_data['secondary_sample_accession'],
             'ANALYSIS_ID': raw_data['analysis_accession'],
@@ -178,9 +172,22 @@ class TestFetchAssemblies:
             'file': ['ERZ477685.fasta.gz'],
         }
 
+    def test_map_datafields_ftp_2_data_should_not_map_invalid_filetype(self):
+        raw_data = {
+            'secondary_study_accession': 'ERP104225',
+            'secondary_sample_accession': 'ERS599830',
+            'analysis_accession': 'ERZ477685',
+            'submitted_ftp': '/tmp/ERP104225/ERZ477685_sub.txt.gz',
+            'generated_ftp': '/tmp/ERP104225/ERZ477685.txt.gz',
+            'submitted_md5': 'md51'
+        }
+        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
+        assembly_data = afa.FetchAssemblies.map_datafields_ftp_2_data(deepcopy(raw_data))
+        assert len(assembly_data) == 0
+
     def test_retrieve_project_info_ftp_should_fetch_all_assemblies(self, tmpdir):
         fetch = afa.FetchAssemblies(argv=['-p', 'ERP112670', '-d', str(tmpdir)])
-        assemblies = fetch._retrieve_project_info_ftp('ERP112670')
+        assemblies = fetch._retrieve_project_info_from_api('ERP112670')
         assert len(assemblies) == 3
 
     def mock_get_assembly_metadata(self, *args, **kwargs):
