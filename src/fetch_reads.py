@@ -1,8 +1,5 @@
 import re
-import sys
 import logging
-from operator import itemgetter
-from src.ERADAO import ERADAO
 
 from src.abstract_fetch import AbstractDataFetcher
 
@@ -35,9 +32,6 @@ class FetchReads(AbstractDataFetcher):
     def _validate_args(self):
         if not any([self.args.runs, self.args.run_list, self.args.projects, self.args.project_list]):
             raise ValueError('No data specified, please use -ru, --run-list, -p or --project-list')
-        #elif not self.args.private and not (self.args.projects or self.args.project_list):
-        #    raise NotImplementedError('Fetching studies from runs via FTP is not supported due '
-        #                              'to performance issues, please use --private mode')
 
     def _process_additional_args(self):
         if self.args.run_list:
@@ -46,18 +40,16 @@ class FetchReads(AbstractDataFetcher):
             self.runs = self.args.runs
 
         if not self.args.projects and not self.args.project_list:
-            logging.info('Fetching projects from list of assemblies')
+            logging.info('Fetching projects from list of runs')
             self.args.projects = self._get_project_accessions_from_runs(self.runs)
 
     def _retrieve_project_info_from_api(self, project_accession):
         data = self._retrieve_ena_url(self.ENA_PORTAL_API_URL.format(project_accession))
         logging.info("Retrieved {count} runs for study {project_accession} from "
                      "the ENA Portal API.".format(count=len(data), project_accession=project_accession))
-        for d in data:
-            if d['fastq_ftp'] == '':
-                data.remove(d)
-                logging.info("The ftp location for run {} is not available yet".format(d['run_accession']))
-        return list(map(self.map_datafields_ftp_2_data, data))
+        [logging.info("The generated ftp location for run {} is not available yet".format(d['run_accession'])) for d in data if not d['fastq_ftp']]
+        new_data = [d for d in data if d['fastq_ftp']]
+        return list(map(self.map_datafields_ftp_2_data, new_data))
 
     def map_datafields_ftp_2_data(self, rundata):
         is_submitted_file = rundata['submitted_ftp'] is not ''
@@ -80,14 +72,12 @@ class FetchReads(AbstractDataFetcher):
             rundata['LIBRARY_LAYOUT'] = rundata.pop('library_layout')
             return rundata
 
-
     def _filter_accessions_from_args(self, run_data, run_accession_field):
         if self.runs:
             run_data = list(filter(lambda r: r[run_accession_field] in self.runs, run_data))
         return run_data
 
-
-    def map_project_info_db_row(self, run):
+    def map_project_info_to_row(self, run):
         return {
             'study_id': run['STUDY_ID'],
             'sample_id': run['SAMPLE_ID'],

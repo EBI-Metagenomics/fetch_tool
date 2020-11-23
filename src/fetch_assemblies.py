@@ -1,20 +1,14 @@
 import re
 import logging
 import os
-import requests
 import gzip
 import json
 
-import sys
-
 from src.ENADAO import ENADAO
-from src.ERADAO import ERADAO
 
 from src.abstract_fetch import AbstractDataFetcher
 
 path_re = re.compile(r'(.*)/(.*)')
-
-
 
 
 class Analysis(object):
@@ -37,15 +31,12 @@ class FetchAssemblies(AbstractDataFetcher):
     ENA_WGS_SET_API_URL = 'https://www.ebi.ac.uk/ena/portal/api/search?result=wgs_set&query=study_accession=' \
                           '%22{0}%22&fields=study_accession,assembly_type,scientific_name,fasta_file&format=tsv'
 
-    #http: // www.ebi.ac.uk / ena / data / warehouse / filereport?accession = {0} & result = read_run & fields =
-
     PROGRAM_EXIT_MSG = "Program will exit now!"
 
     def __init__(self, argv=None):
         self.ACCESSION_FIELD = 'ANALYSIS_ID'
         self.assemblies = None
         super().__init__(argv)
-        self.init_era_dao()
         self.init_ena_dao()
 
     @staticmethod
@@ -69,9 +60,6 @@ class FetchAssemblies(AbstractDataFetcher):
     def _validate_args(self):
         if not any([self.args.assemblies, self.args.assembly_list, self.args.projects, self.args.project_list]):
             raise ValueError('No data specified, please use -as, --assembly-list, -p or --project-list')
-        #elif not self.args.private and not (self.args.projects or self.args.project_list):
-        #    raise NotImplementedError('Fetching studies from assemblies via FTP is not supported due '
-        #                              'to performance issues, please use --private mode')
 
     def _process_additional_args(self):
         self.assembly_type = self.args.assembly_type
@@ -85,25 +73,15 @@ class FetchAssemblies(AbstractDataFetcher):
             logging.info('Fetching projects from list of assemblies')
             self.args.projects = self._get_project_accessions_from_assemblies(self.assemblies)
 
-            #logging.error('Please specify the secondary project ID')
-            #logging.warning(self.PROGRAM_EXIT_MSG)
-            #sys.exit(1)
-
     def _retrieve_project_info_from_api(self, project_accession):
         #self._retrieve_insdc_assemblies(project_accession)
         data = self._retrieve_ena_url(self.ENA_PORTAL_API_URL.format(project_accession, self.assembly_type))
+        print(len(data))
         logging.info("Retrieved {count} assemblies for study {project_accession} from "
                      "the ENA Portal API.".format(count=len(data), project_accession=project_accession))
-        for d in data:
-            if d['analysis_type'] != 'SEQUENCE_ASSEMBLY':
-                data.remove(d)
-            if not d['generated_ftp']:
-                data.remove(d)
-                logging.info("The generated ftp location for run {} is not available yet".format(d['analysis_accession']))
-
-        #data_filtered = [d for d in data if d['analysis_type'] == 'SEQUENCE_ASSEMBLY' and len(d['generated_ftp'])]
-        return list(map(self.map_datafields_ftp_2_data, data))
-
+        [logging.info("The generated ftp location for assembly {} is not available yet".format(d['analysis_accession'])) for d in data if not d['generated_ftp']]
+        new_data = [d for d in data if d['analysis_type'] =='SEQUENCE_ASSEMBLY' and d['generated_ftp']]
+        return list(map(self.map_datafields_ftp_2_data, new_data))
 
     def map_datafields_ftp_2_data(self, assemblydata):
         is_submitted_file = assemblydata['submitted_ftp'] is not ''
@@ -127,8 +105,7 @@ class FetchAssemblies(AbstractDataFetcher):
         else:
             return assembly_data
 
-
-    def map_project_info_db_row(self, assembly):
+    def map_project_info_to_row(self, assembly):
         return {
             'study_id': assembly['STUDY_ID'],
             'sample_id': assembly['SAMPLE_ID'],

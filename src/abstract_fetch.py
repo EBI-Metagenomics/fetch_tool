@@ -13,7 +13,6 @@ from pandas.errors import EmptyDataError
 import pandas as pd
 import requests
 import ftplib
-import urllib.request
 from subprocess import call
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -50,24 +49,14 @@ class AbstractDataFetcher(ABC):
         self.prod_user = os.environ.get('USER') == 'emgpr'
 
         self._process_additional_args()
-        self.projects = self.args.projects
-        self.sanity_check_project_accessions()
-        self.project_accessions = self._get_project_accessions(self.args)
+        if self.args.projects or self.args.project_list:
+            self.projects = self._get_project_accessions(self.args)
+            self.sanity_check_project_accessions()
 
         if self.args.private:
-            self.init_era_dao()
             self.init_ena_dao()
-            self.study_brokers = self._get_studies_brokers(self.project_accessions)
         else:
-            self.eradao = None
             self.enadao = None
-
-    def init_era_dao(self):
-        self.eradao = self.load_oracle_connection(self.config['eraUser'],
-                                                  self.config['eraPassword'],
-                                                  self.config['eraHost'],
-                                                  self.config['eraPort'],
-                                                  self.config['eraInstance'])
 
     def init_ena_dao(self):
         self.enadao = self.load_oracle_connection(self.config['enaUser'],
@@ -75,6 +64,10 @@ class AbstractDataFetcher(ABC):
                                                   self.config['enaHost'],
                                                   self.config['enaPort'],
                                                   self.config['enaInstance'])
+
+    @abstractmethod
+    def _validate_args(self):
+        pass
 
     @abstractmethod
     def _process_additional_args(self):
@@ -114,11 +107,6 @@ class AbstractDataFetcher(ABC):
         parser = self.add_arguments(parser)
         return parser.parse_args(argv)
 
-    def _validate_args(self):
-        if not self.args.projects and not self.args.project_list:
-            raise ValueError(
-                'No projects specified, please set --projects <ERP... SRP...> or --project_list <projects.txt>')
-
     @staticmethod
     def add_arguments(parser):
         return parser
@@ -140,10 +128,6 @@ class AbstractDataFetcher(ABC):
     @staticmethod
     def create_output_dir(dirname):
         os.makedirs(dirname, exist_ok=True)
-
-    #@abstractmethod
-    #def _retrieve_project_info_db(self, project_accession):
-    #    pass
 
     @abstractmethod
     def _retrieve_project_info_from_api(self, project_accession):
@@ -173,7 +157,6 @@ class AbstractDataFetcher(ABC):
             logging.warning('No entries found!')
             return
         secondary_project_accession = project_accession
-        primary_project_accession = new_data[0]['study_accession']
 
         os.makedirs(self.get_project_workdir(secondary_project_accession), exist_ok=True)
 
@@ -277,14 +260,6 @@ class AbstractDataFetcher(ABC):
         return pd.read_csv(filepath, sep='\t')
 
     @staticmethod
-    def check_files_downloaded(raw_dir, filenames):
-        # Filter NaN values from pandas
-        if not isinstance(filenames, str):
-            return False
-        filepaths = [os.path.join(raw_dir, f) for f in filenames.split(';')]
-        return all(list(map(os.path.isfile, filepaths)))
-
-    @staticmethod
     def clean_data_row(data):
         clean_data = copy.deepcopy(data)
         for field in ['file', 'file_path']:
@@ -348,44 +323,6 @@ class AbstractDataFetcher(ABC):
     def get_api_credentials(self):
         return self.config['enaAPIUsername'] + ':' + self.config['enaAPIPassword']
 
-    def get_trusted_brokers(self):
-        return self.config['trustedBrokers']
-
-    def get_ena_api_url(self):
-        return
-
-    def _get_studies_brokers(self, study_accessions):
-        logging.info("Retrieving study broker name for study {}...".format(study_accessions))
-        headers = {'Accept': '*/*',
-                   'Content-Type': 'application/x-www-form-urlencoded'}
-        data = {
-            'dataPortal': 'metagenome',
-            'result': 'study',
-            'query': "secondary_study_accession%3D" + "%20OR%20secondary_study_accession%3D".join(study_accessions),
-            'fields': 'secondary_study_accession,broker_name',
-            'format': 'json'
-        }
-
-        r = requests.post(self.config['enaAPIUrl'] + 'search', headers=headers, data=data,
-                          auth=(self.config['enaAPIUsername'], self.config['enaAPIPassword']))
-
-        if r.status_code != 200:
-            logging.warning(
-                "Could NOT retrieve study broker name using the ENA Portal API! Got response code {}".format(
-                    r.status_code))
-            logging.warning("Possible reasons for that could be:\n - private study is"
-                            " not indexed yet\n - study is not labelled as metagenome study ")
-            return {acc: '' for acc in study_accessions}
-        else:
-            json_data = r.json()
-            broker_name = {d['secondary_study_accession']: d['broker_name'] for d in json_data}
-            logging.info("Found the following broker name: {}".format(broker_name))
-            return broker_name
-
-    def _study_has_permitted_broker(self, study_accession):
-        broker = None if study_accession not in self.study_brokers else self.study_brokers.get(study_accession)
-        return broker and broker != '' and broker in self.config['trustedBrokers']
-
     def _is_rawdata_filetype(self, filename):
         return any(x in filename for x in ['.fa', '.fna', '.fasta', '.fq', 'fastq'])
 
@@ -435,7 +372,7 @@ class AbstractDataFetcher(ABC):
         from src.oracle_db_connection import OracleDBConnection
         return OracleDataAccessObject(OracleDBConnection(user, password, host, port, instance))
 
-    def _retrieve_ena_url(self, url):
+    def _retrieve_ena_url(self, url, no_auth=False):
         attempt = 0
         response = None
         while True:
@@ -444,7 +381,7 @@ class AbstractDataFetcher(ABC):
                 if response.status_code == 200:
                     break
                 if response.status_code == 204:
-                    logging.warning("Could not retrieve any assemblies!")
+                    logging.warning("Could not retrieve any runs/assemblies")
                 elif response.status_code == 401:
                     logging.warning("Invalid Username or Password!")
                 else:
@@ -457,7 +394,7 @@ class AbstractDataFetcher(ABC):
             if attempt >= self.config['url_max_attempts']:
                 logging.critical("Failed to open url " + url + " after " + str(
                     attempt) + " attempts")
-                sys.exit(0)
+                sys.exit(1)
         data = response.json()
         return data
 
@@ -470,47 +407,6 @@ class AbstractDataFetcher(ABC):
             else:
                 logging.info('File {} exists, but MD5 does not match'.format(basename))
         return False
-
-    def download_dcc(self, dest, download_file):
-        attempt = 1
-        n_hosts = len(self.config['ena_login_hosts'])
-        command = []
-        while True:
-            if not self.prod_user:
-                command = ['sudo', '-H', '-u', 'emgpr']
-            host = self.config['ena_login_hosts'][attempt % n_hosts]
-            host_path = '{}:/nfs/dcc_metagenomics/{}'.format(host, download_file)
-            logging.info(host_path)
-            command.extend(['scp', '-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=3', host_path, dest])
-            rv = call(command)
-            if not rv:
-                if not self.prod_user:
-                    command = ["sudo", "-H", "-u", "emgpr"]
-                    command.extend(['chmod', '775', dest])
-                    rv = call(command)
-                    if not rv:
-                        return
-                    else:
-                        logging.warning('Failed to rename ' + str(dest))
-                break
-            if attempt >= self.config['ssh_max_attempts']:
-                logging.error('Failed to run ' + ' '.join(command))
-                if self.interactive_mode:
-                    var = input(
-                        'Please type C to continue to fetch the next sequence file or anything else to exit: ')
-                    if not var.upper().startswith('C'):
-                        logging.warning('Exiting now...')
-                        sys.exit(0)
-                    else:
-                        break
-                else:
-                    if self.force_mode:
-                        logging.warning('Force mode is activated. Will skip the download of this run '
-                                        'and move onto the next sequence!')
-                        break
-                    else:
-                        raise EnvironmentError('Too many failed attempts. Program will exit now.')
-            attempt += 1
 
     def download_ftp(self, dest, url, auth=True):
         if url[:4] == 'ftp.':
@@ -621,11 +517,11 @@ class AbstractDataFetcher(ABC):
             f.write(md5_val)
 
     @abstractmethod
-    def map_project_info_db_row(self, data):
+    def map_project_info_to_row(self, data):
         pass
 
     def write_project_files(self, project_accession, new_runs):
-        new_run_rows = list(map(self.map_project_info_db_row, new_runs))
+        new_run_rows = list(map(self.map_project_info_to_row, new_runs))
         self.write_project_description_file(project_accession, new_run_rows)
         if not self.desc_file_only:
             self.write_project_download_file(project_accession, new_run_rows)
@@ -645,20 +541,12 @@ class AbstractDataFetcher(ABC):
                 logging.info("Program will exit now!")
                 sys.exit(1)
 
-    @staticmethod
-    def rename_file(source, destination):
-        try:
-            os.rename(source, destination)
-        except:
-            print("Unexpected error:", sys.exc_info()[0])
-            raise
-
 
 def silentremove(filename):
     try:
         os.remove(filename)
     except OSError as e:  # this would be "except OSError, e:" before Python 2.6
-        if type(e) != FileNotFoundError:  # errno.ENOENT = no such file or directory
+        if type(e) != 'FileNotFoundError':  # errno.ENOENT = no such file or directory
             raise  # re-raise exception if a different error occurred
 
 
