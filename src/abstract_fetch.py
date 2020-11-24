@@ -378,7 +378,7 @@ class AbstractDataFetcher(ABC):
         response = None
         while True:
             try:
-                response = requests.get(url, auth=(self.config['enaAPIUsername'], self.config['enaAPIPassword']))
+                response = requests.get(url, auth=(self.ENA_API_USER, self.ENA_API_PASSWORD))
                 if response.status_code == 200:
                     break
                 if response.status_code == 204:
