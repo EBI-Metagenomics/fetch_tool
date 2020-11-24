@@ -133,7 +133,6 @@ class TestFetchReads:
               'broker_name': 'MGRAST', 'library_source': 'METAGENOMIC'}
         ]
 
-
     @patch('src.fetch_assemblies.FetchAssemblies._retrieve_ena_url')
     def test_process_additional_args_should_find_study_accessions_for_runs(self, mocked_class1, tmpdir):
         study_accession = 'ERP110686'

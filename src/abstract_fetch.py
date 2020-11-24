@@ -323,7 +323,8 @@ class AbstractDataFetcher(ABC):
     def get_api_credentials(self):
         return self.config['enaAPIUsername'] + ':' + self.config['enaAPIPassword']
 
-    def _is_rawdata_filetype(self, filename):
+    @staticmethod
+    def _is_rawdata_filetype(filename):
         return any(x in filename for x in ['.fa', '.fna', '.fasta', '.fq', 'fastq'])
 
     def _filter_secondary_files(self, joined_file_names, md5s):

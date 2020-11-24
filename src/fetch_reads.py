@@ -73,6 +73,7 @@ class FetchReads(AbstractDataFetcher):
             return rundata
 
     def _filter_accessions_from_args(self, run_data, run_accession_field):
+        run_data = [x for x in run_data if x]
         if self.runs:
             run_data = list(filter(lambda r: r[run_accession_field] in self.runs, run_data))
         return run_data
@@ -96,7 +97,7 @@ class FetchReads(AbstractDataFetcher):
             [project_list.add(d['secondary_study_accession']) for d in data]
         return project_list
 
-
+      
 def main():
     data_fetcher = FetchReads()
     data_fetcher.fetch()
