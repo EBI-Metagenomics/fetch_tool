@@ -27,6 +27,7 @@ class AbstractDataFetcher(ABC):
                        'library_source', 'file', 'file_path']
     ACCESSION_FIELD = None
     ACCESSION_REGEX = r'([EDS]R[RZS]\d+)'
+    PROGRAM_EXIT_MSG = "Program will exit now!"
 
     def __init__(self, argv=sys.argv[1:]):
         self.args = self._parse_args(argv)
@@ -190,8 +191,6 @@ class AbstractDataFetcher(ABC):
             silentremove(dest)
             try:
                 is_success_lftp = self.download_lftp(dest, dl_file)
-                if is_success_lftp:
-                    file_downloaded = True
                 if not is_success_lftp:
                     logging.info('Too many failed attempts. Trying wget now...')
                     self.download_ftp(dest, dl_file)
@@ -373,9 +372,8 @@ class AbstractDataFetcher(ABC):
         from src.oracle_db_connection import OracleDBConnection
         return OracleDataAccessObject(OracleDBConnection(user, password, host, port, instance))
 
-    def _retrieve_ena_url(self, url, no_auth=False):
+    def _retrieve_ena_url(self, url):
         attempt = 0
-        response = None
         while True:
             try:
                 response = requests.get(url, auth=(self.ENA_API_USER, self.ENA_API_PASSWORD))
@@ -387,7 +385,7 @@ class AbstractDataFetcher(ABC):
                     logging.warning("Invalid Username or Password!")
                 else:
                     logging.warning("Received the following unknown response code from the "
-                                    "Portal API server:\n{}".format(r.status_code))
+                                    "Portal API server:\n{}".format(response.status_code))
             except requests.exceptions.RequestException as e:  # check syntax
                 logging.warning("Request exception. "
                                 "Exception:\n {}".format(e))
@@ -452,10 +450,17 @@ class AbstractDataFetcher(ABC):
                         sys.exit(1)
 
     def download_lftp(self, dest, url):
+        """
+            e.g. to get file path and names from full FTP URL
+        url = ftp.sra.ebi.ac.uk/vol1/sequence/ERZ166/ERZ1669403/contig.fa.gz
+        path list = ['vol1', 'sequence', 'ERZ166', 'ERZ1669403']
+        path = vol1/sequence/ERZ166/ERZ1669403
+        filename = contig.fasta.gz
+        """
         server = 'ftp.dcc-private.ebi.ac.uk'
         path_list = url.split('ebi.ac.uk/')[-1].split('/')[:-1]
-        path = '/'.join(path_list)
-        file_name = url.split('/')[-1]
+        path = os.path.join(path_list)
+        file_name = os.path.basename(url)
         attempt = 0
         while attempt <= 3:
             try:
@@ -484,21 +489,20 @@ class AbstractDataFetcher(ABC):
                             "(e.g. private and public) within the same study.".format(statuses=status_ids))
             logging.warning("Cannot handle this at the moment. Program will exit now!")
             sys.exit(1)
+        status_id = status_ids.pop()
+        # 2 = private and 4 = public and 7 == temp suppressd
+        if status_id == 2:
+            return 0
+        elif status_id == 4:
+            return 1
+        elif status_id == 7:
+            logging.warning("Study assemblies are temporarily suppressed!")
+            logging.warning(self.PROGRAM_EXIT_MSG)
+            sys.exit(1)
         else:
-            status_id = status_ids.pop()
-            # 2 = private and 4 = public and 7 == temp suppressd
-            if status_id == 2:
-                return 0
-            elif status_id == 4:
-                return 1
-            elif status_id == 7:
-                logging.warning("Study assemblies are temporarily suppressed!")
-                logging.warning(self.PROGRAM_EXIT_MSG)
-                sys.exit(1)
-            else:
-                logging.warning("Unsupported analysis status id found: {status_id}".format(status_id=status_id))
-                logging.warning(self.PROGRAM_EXIT_MSG)
-                sys.exit(1)
+            logging.warning("Unsupported analysis status id found: {status_id}".format(status_id=status_id))
+            logging.warning(self.PROGRAM_EXIT_MSG)
+            sys.exit(1)
 
     @staticmethod
     def get_md5_file(filename):
@@ -547,7 +551,7 @@ def silentremove(filename):
     try:
         os.remove(filename)
     except OSError as e:  # this would be "except OSError, e:" before Python 2.6
-        if type(e) != 'FileNotFoundError':  # errno.ENOENT = no such file or directory
+        if type(e) != FileNotFoundError:  # errno.ENOENT = no such file or directory
             raise  # re-raise exception if a different error occurred
 
 

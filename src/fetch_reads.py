@@ -1,5 +1,6 @@
 import re
 import logging
+import os
 
 from src.abstract_fetch import AbstractDataFetcher
 
@@ -7,14 +8,43 @@ path_re = re.compile(r'(.*)/(.*)')
 
 
 class FetchReads(AbstractDataFetcher):
-    ENA_PORTAL_API_URL = 'https://www.ebi.ac.uk/ena/portal/api/search?dataPortal=metagenome&dccDataOnly=false&result=' \
-                          'read_run&format=json&query=secondary_study_accession=%22{0}%22&fields=study_accession,' \
-                          'secondary_study_accession,sample_accession,secondary_sample_accession,experiment_accession,' \
-                          'run_accession,instrument_model,library_layout,fastq_ftp,fastq_md5,submitted_ftp,submitted_md5,' \
-                          'library_strategy,broker_name,library_source&download=true'
-    ENA_PORTAL_API_BY_RUN = 'https://www.ebi.ac.uk/ena/portal/api/search?dataPortal=metagenome&dccDataOnly=false&result' \
-                            '=read_run&format=json&query=run_accession=%22{0}%22&fields=secondary_study_accession&' \
-                            'download=true'
+    ENA_PORTAL_BASE_API_URL = 'https://www.ebi.ac.uk/ena/portal/api/search?'
+
+    ENA_PORTAL_FIELDS = [
+        'study_accession',
+        'secondary_study_accession',
+        'sample_accession',
+        'secondary_sample_accession',
+        'experiment_accession',
+        'run_accession',
+        'instrument_model',
+        'library_layout',
+        'fastq_ftp',
+        'fastq_md5',
+        'submitted_ftp',
+        'submitted_md5',
+        'library_strategy',
+        'broker_name',
+        'library_source'
+    ]
+
+    ENA_PORTAL_RUN_FIELDS = 'secondary_study_accession'
+
+    ENA_PORTAL_PARAMS = [
+        'dataPortal=metagenome',
+        'dccDataOnly=false',
+        'result=read_run',
+        'format=json',
+        'download=true',
+        'fields='
+    ]
+
+    # query
+    ENA_PORTAL_QUERY = "query=secondary_study_accession=%22{0}%22&"
+    ENA_PORTAL_RUN_QUERY = "query=run_accession=%22{0}%22"
+
+    ENA_PORTAL_API_URL = ENA_PORTAL_BASE_API_URL + "&".join(ENA_PORTAL_PARAMS) + ','.join(ENA_PORTAL_FIELDS) + "&" + ENA_PORTAL_QUERY
+    ENA_PORTAL_API_BY_RUN = ENA_PORTAL_BASE_API_URL + "&".join(ENA_PORTAL_PARAMS) + ENA_PORTAL_RUN_FIELDS + "&" + ENA_PORTAL_RUN_QUERY
 
     def __init__(self, argv=None):
         self.runs = None
@@ -47,33 +77,38 @@ class FetchReads(AbstractDataFetcher):
         data = self._retrieve_ena_url(self.ENA_PORTAL_API_URL.format(project_accession))
         logging.info("Retrieved {count} runs for study {project_accession} from "
                      "the ENA Portal API.".format(count=len(data), project_accession=project_accession))
-        [logging.info("The generated ftp location for run {} is not available yet".format(d['run_accession'])) for d in data if not d['fastq_ftp']]
-        new_data = [d for d in data if d['fastq_ftp']]
-        return list(map(self.map_datafields_ftp_2_data, new_data))
-
-    def map_datafields_ftp_2_data(self, rundata):
-        is_submitted_file = rundata['submitted_ftp'] is not ''
-        rundata['STUDY_ID'] = rundata.pop('secondary_study_accession')
-        rundata['SAMPLE_ID'] = rundata.pop('secondary_sample_accession')
-        rundata['RUN_ID'] = rundata.pop('run_accession')
-        rundata['DATA_FILE_ROLE'] = 'SUBMISSION_FILE' if is_submitted_file else 'GENERATED_FILE'
-        file_paths = rundata.get('fastq_ftp') #or rundata.get('submitted_ftp')
-        is_valid_filetype = [self._is_rawdata_filetype(f) for f in file_paths.split(';')]
-        if not False in is_valid_filetype:
-            md5s = rundata.get('fastq_md5') or rundata.get('submitted_md5')
-            rundata['DATA_FILE_PATH'], rundata['file'], rundata['MD5'] = self._get_raw_filenames(file_paths,
-                                                                                                 md5s,
-                                                                                                 rundata['RUN_ID'],
-                                                                                                 is_submitted_file)
-            for key in ('fastq_ftp', 'submitted_ftp', 'fastq_md5', 'submitted_md5'):
-                del rundata[key]
-            rundata['LIBRARY_STRATEGY'] = rundata.pop('library_strategy')
-            rundata['LIBRARY_SOURCE'] = rundata.pop('library_source')
-            rundata['LIBRARY_LAYOUT'] = rundata.pop('library_layout')
-            return rundata
+        mapped_data = []
+        for d in data:
+            if not d['fastq_ftp']:
+                logging.info(
+                    "The generated ftp location for assembly {} is not available yet".format(d['run_accession']))
+            else:
+                is_submitted_file = bool(d.get('submitted_ftp'))
+                file_paths = d.get('fastq_ftp')  # or rundata.get('submitted_ftp')??
+                is_valid_filetype = [self._is_rawdata_filetype(os.path.basename(f)) for f in file_paths.split(';')] #filter filenames not fasta/fastq
+                if False not in is_valid_filetype:
+                    md5s = d.get('fastq_md5') or d.get('submitted_md5')
+                    raw_data_file_path, file_, md5_ = self._get_raw_filenames(
+                        d.get('fastq_ftp'),
+                        md5s,
+                        d.get('run_accession'),
+                        is_submitted_file
+                    )
+                    mapped_data.append({
+                        'STUDY_ID': d.get('secondary_study_accession'),
+                        'SAMPLE_ID': d.get('secondary_sample_accession'),
+                        'RUN_ID': d.get('run_accession'),
+                        'DATA_FILE_ROLE': 'SUBMISSION_FILE' if is_submitted_file else 'GENERATED_FILE',
+                        'DATA_FILE_PATH': raw_data_file_path,
+                        'file': file_,
+                        'MD5': md5_,
+                        'LIBRARY_STRATEGY': d.get('library_strategy'),
+                        'LIBRARY_SOURCE': d.get('library_source'),
+                        'LIBRARY_LAYOUT': d.get('library_layout')
+                    })
+        return mapped_data
 
     def _filter_accessions_from_args(self, run_data, run_accession_field):
-        run_data = [x for x in run_data if x]
         if self.runs:
             run_data = list(filter(lambda r: r[run_accession_field] in self.runs, run_data))
         return run_data
@@ -97,7 +132,7 @@ class FetchReads(AbstractDataFetcher):
             [project_list.add(d['secondary_study_accession']) for d in data]
         return project_list
 
-      
+
 def main():
     data_fetcher = FetchReads()
     data_fetcher.fetch()

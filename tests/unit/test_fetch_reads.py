@@ -81,59 +81,51 @@ class TestFetchReads:
             assert raw_data[f1] == transform[f2]
         assert transform['file'] == 'ERR599383_1.fastq.gz;ERR599383_2.fastq.gz'
 
-    def test_map_datafields_ftp_2_db_should_map_all_fields(self):
-        raw_data = {
-            'secondary_study_accession': 'ERP001736',
-            'secondary_sample_accession': 'ERS599830',
-            'run_accession': 'ERR599830',
-            'library_source': 'METAGENOMIC',
-            'library_strategy': 'WGS',
-            'library_layout': 'PAIRED',
-            'fastq_ftp': '/tmp/ERP001736/ERR599383_1.fastq.gz;/tmp/ERP001736/ERR599383_2.fastq.gz',
-            'fastq_md5': 'md51;md52',
-            'submitted_ftp': '',
-            'submitted_md5': ''
-        }
-        fetch = fetch_reads.FetchReads(argv=['-p', 'ERP003634'])
-        assert fetch.map_datafields_ftp_2_data(deepcopy(raw_data)) == {
-            'STUDY_ID': raw_data['secondary_study_accession'],
-            'SAMPLE_ID': raw_data['secondary_sample_accession'],
-            'RUN_ID': raw_data['run_accession'],
-            'LIBRARY_SOURCE': raw_data['library_source'],
-            'LIBRARY_STRATEGY': raw_data['library_strategy'],
-            'LIBRARY_LAYOUT': raw_data['library_layout'],
-            'DATA_FILE_ROLE': 'GENERATED_FILE',
-            'DATA_FILE_PATH': ('/tmp/ERP001736/ERR599383_1.fastq.gz', '/tmp/ERP001736/ERR599383_2.fastq.gz'),
-            'MD5': ('md51', 'md52'),
-            'file': ['ERR599383_1.fastq.gz', 'ERR599383_2.fastq.gz'],
-        }
-
+    @staticmethod
     def mock_get_study_from_run(self, *args, **kwargs):
         return [{'run_accession': 'ERR2777789', 'secondary_study_accession': 'ERP110686'}]
 
+    """
+    1. INVALID = incorrect file format
+    2. INVALID = no file paths
+    3. VALID
+    """
+
+    @staticmethod
     def mock_get_run_metadata(self, *args, **kwargs):
         return [
             {'study_accession': 'PRJEB28479', 'secondary_study_accession': 'ERP110686',
-              'sample_accession': 'SAMEA4883561', 'secondary_sample_accession': 'ERS2702567',
-              'experiment_accession': 'ERX2789866', 'run_accession': 'ERR2777789', 'instrument_model': 'unspecified',
-              'library_layout': 'PAIRED', 'fastq_ftp': '', 'fastq_md5': '',
-              'submitted_ftp': 'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz',
-              'submitted_md5': '7935d13d964cc6bc5038f7706ec3e1c4', 'library_strategy': 'AMPLICON',
-              'broker_name': 'MGRAST', 'library_source': 'METAGENOMIC'},
+             'sample_accession': 'SAMEA4883561', 'secondary_sample_accession': 'ERS2702567',
+             'experiment_accession': 'ERX2789866', 'run_accession': 'ERR2777788', 'instrument_model': 'unspecified',
+             'library_layout': 'PAIRED',
+             'fastq_ftp': 'ftp.sra.ebi.ac.uk/vol1/fastq/ERR277/009/ERR2777788/ERR2777788_1.txt.gz;'
+                          'ftp.sra.ebi.ac.uk/vol1/fastq/ERR277/009/ERR2777790/ERR2777788_2.txt.gz',
+             'fastq_md5': '39f9956b66880e386d741eea2a0e54c2;9e6db19a2ef56383e8e426784ffff425',
+             'submitted_ftp': 'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777788/140210.050.upload.txt.trim.gz',
+             'submitted_md5': '7935d13d964cc6bc5038f7706ec3e1c5', 'library_strategy': 'AMPLICON',
+             'broker_name': 'MGRAST', 'library_source': 'METAGENOMIC'},
             {'study_accession': 'PRJEB28479', 'secondary_study_accession': 'ERP110686',
-              'sample_accession': 'SAMEA4883562', 'secondary_sample_accession': 'ERS2702568',
-              'experiment_accession': 'ERX2789867', 'run_accession': 'ERR2777790', 'instrument_model': 'unspecified',
-              'library_layout': 'PAIRED', 'fastq_ftp': 'ftp.sra.ebi.ac.uk/vol1/fastq/ERR277/009/ERR2777790/ERR2777790_1.fastq.gz;'
-                                                       'ftp.sra.ebi.ac.uk/vol1/fastq/ERR277/009/ERR2777790/ERR2777790_2.fastq.gz',
+             'sample_accession': 'SAMEA4883561', 'secondary_sample_accession': 'ERS2702567',
+             'experiment_accession': 'ERX2789866', 'run_accession': 'ERR2777789', 'instrument_model': 'unspecified',
+             'library_layout': 'PAIRED', 'fastq_ftp': '', 'fastq_md5': '',
+             'submitted_ftp': 'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777789/140210.050.upload.fna.trim.gz',
+             'submitted_md5': '7935d13d964cc6bc5038f7706ec3e1c4', 'library_strategy': 'AMPLICON',
+             'broker_name': 'MGRAST', 'library_source': 'METAGENOMIC'},
+            {'study_accession': 'PRJEB28479', 'secondary_study_accession': 'ERP110686',
+             'sample_accession': 'SAMEA4883562', 'secondary_sample_accession': 'ERS2702568',
+             'experiment_accession': 'ERX2789867', 'run_accession': 'ERR2777790', 'instrument_model': 'unspecified',
+             'library_layout': 'PAIRED',
+             'fastq_ftp': 'ftp.sra.ebi.ac.uk/vol1/fastq/ERR277/009/ERR2777790/ERR2777790_1.fastq.gz;'
+                          'ftp.sra.ebi.ac.uk/vol1/fastq/ERR277/009/ERR2777790/ERR2777790_2.fastq.gz',
              'fastq_md5': '39f9956b66880e386d741eea2a0e54c1;9e6db19a2ef56383e8e426784ffff424',
-              'submitted_ftp': 'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777790/140211.050.upload.fna.trim.gz:'
-                               'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777790/140211.050.upload.fna.trim.gz',
-              'submitted_md5': '39f9956b66880e386d741eea2a0e54c1;9e6db19a2ef56383e8e426784ffff424', 
+             'submitted_ftp': 'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777790/140211.050.upload.fna.trim.gz:'
+                              'ftp.sra.ebi.ac.uk/vol1/run/ERR277/ERR2777790/140211.050.upload.fna.trim.gz',
+             'submitted_md5': '39f9956b66880e386d741eea2a0e54c1;9e6db19a2ef56383e8e426784ffff424',
              'library_strategy': 'AMPLICON',
-              'broker_name': 'MGRAST', 'library_source': 'METAGENOMIC'}
+             'broker_name': 'MGRAST', 'library_source': 'METAGENOMIC'}
         ]
 
-    @patch('src.fetch_assemblies.FetchAssemblies._retrieve_ena_url')
+    @patch('src.fetch_reads.FetchReads._retrieve_ena_url')
     def test_process_additional_args_should_find_study_accessions_for_runs(self, mocked_class1, tmpdir):
         study_accession = 'ERP110686'
         run_id = 'ERR2777789'
@@ -143,8 +135,8 @@ class TestFetchReads:
         fetch._process_additional_args()
         assert fetch.args.projects == {study_accession}
 
-    @patch('src.fetch_assemblies.FetchAssemblies._retrieve_ena_url')
-    def test_retrieve_project_should_return_only_valid_assemblies_and_check_md5(self, mocked_class1, tmpdir):
+    @patch('src.fetch_reads.FetchReads._retrieve_ena_url')
+    def test_retrieve_project_should_return_only_valid_reads_and_check_md5(self, mocked_class1, tmpdir):
         study_accession = 'ERP110686'
         valid_file_for = ('ERR2777790_1.fastq.gz', '39f9956b66880e386d741eea2a0e54c1')
         valid_file_rev = ('ERR2777790_2.fastq.gz', '9e6db19a2ef56383e8e426784ffff424')
@@ -159,7 +151,7 @@ class TestFetchReads:
                 open(run_path, 'a').close()
         assert len(runs) == 1
         assert os.listdir(tmpdir) == ['ERR2777790_2.fastq.gz', 'ERR2777790_1.fastq.gz']
-        for x,y in [valid_file_for, valid_file_rev]:
+        for x, y in [valid_file_for, valid_file_rev]:
             assert not fetch._is_file_valid(os.path.join(tmpdir, x), y)
         project_dir = os.path.join(tmpdir, study_accession)
         os.mkdir(project_dir)
@@ -172,10 +164,10 @@ class TestFetchReads:
         with open(os.path.join(project_dir, 'ERP110686.txt')) as t:
             txt_data = t.readlines()
             assert len(txt_data) == 2
-        
+
     @patch.object(fetch_reads.FetchReads, 'fetch')
     def test_main_should_call_fetch(self, mock):
-        test_args = ['scriptname', '-p', 'ERP001736']
+        test_args = ['scriptname', '-p', 'ERP110686']
         with patch.object(sys, 'argv', test_args):
             fetch_reads.main()
         assert mock.called

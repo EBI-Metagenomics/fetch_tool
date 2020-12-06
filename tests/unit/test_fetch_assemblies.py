@@ -1,10 +1,8 @@
 import os
 import pytest
-import shutil
 import sys
 from unittest.mock import patch
 
-from copy import deepcopy
 from src import fetch_assemblies
 
 FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, 'fixtures'))
@@ -59,44 +57,6 @@ class TestFetchAssemblies:
             {'analysis_id': 'ERZ477687'},
         ]
         assert run_data[0:2] == fetch._filter_accessions_from_args(run_data, 'analysis_id')
-        
-    def test_map_datafields_ftp_2_data_should_map_all_fields(self):
-        raw_data = {
-            'secondary_study_accession': 'ERP104225',
-            'secondary_sample_accession': 'ERS599830',
-            'analysis_accession': 'ERZ477685',
-            'submitted_ftp': '/tmp/ERP104225/ERZ477685_sub.fasta.gz',
-            'generated_ftp': '/tmp/ERP104225/contig.fasta.gz',
-            'submitted_md5': 'md51',
-            'generated_md5': 'md52'
-        }
-        fetch = fetch_assemblies.FetchAssemblies(argv=['-p', 'ERP003634'])
-        raw_data_copy = deepcopy(raw_data)
-        assert fetch.map_datafields_ftp_2_data(raw_data_copy) == {
-            'submitted_ftp': '/tmp/ERP104225/ERZ477685_sub.fasta.gz',
-            'submitted_md5': 'md51',
-            'STUDY_ID': raw_data['secondary_study_accession'],
-            'SAMPLE_ID': raw_data['secondary_sample_accession'],
-            'ANALYSIS_ID': raw_data['analysis_accession'],
-            'DATA_FILE_PATH': ('/tmp/ERP104225/contig.fasta.gz',),
-            'MD5': ('md52',),
-            'file': ['ERZ477685.fasta.gz'],
-        }
-
-    def test_map_datafields_ftp_2_data_should_not_map_invalid_filetype(self):
-        raw_data = {
-            'secondary_study_accession': 'ERP104225',
-            'secondary_sample_accession': 'ERS599830',
-            'analysis_accession': 'ERZ477685',
-            'submitted_ftp': '/tmp/ERP104225/ERZ477685_sub.txt.gz',
-            'generated_ftp': '/tmp/ERP104225/contig.txt.gz',
-            'submitted_md5': 'md51',
-            'generated_md5': 'md52'
-        }
-        raw_data_copy = deepcopy(raw_data)
-        fetch = fetch_assemblies.FetchAssemblies(argv=['-p', 'ERP003634'])
-        assembly_data = fetch.map_datafields_ftp_2_data(raw_data_copy)
-        assert assembly_data is None
 
     def test_map_project_info_to_row_should_copy_fields(self):
         raw_data = {
@@ -118,35 +78,56 @@ class TestFetchAssemblies:
             assert raw_data[f1] == transform[f2]
         assert transform['file'] == 'ERZ477685.fasta.gz'
 
+    @staticmethod
     def mock_get_study_from_assembly(self, *args, **kwargs):
         return [{'analysis_accession': 'ERZ1505406', 'secondary_study_accession': 'ERP123564'}]
 
+    """
+    1. INVALID = incorrect file format
+    2. INVALID = REFERENCE ALIGNMENT should be SEQUENCE ASSEMBLY
+    3. INVALID = no file paths
+    4. VALID
+    """
+
+    @staticmethod
     def mock_get_assembly_metadata(self, *args, **kwargs):
         return [
-           {'analysis_accession': 'ERZ1505404', 'study_accession': 'PRJEB39980',
+            {'analysis_accession': 'ERZ1505403', 'study_accession': 'PRJEB39980',
+             'analysis_type': 'SEQUENCE_ASSEMBLY', 'center_name': 'EMG', 'first_public': '2020-08-22',
+             'submitted_md5': 'bbf202d0482c7bb359e5afe9157b578d;3b0213d90cc8902e29817d69bad524a8',
+             'submitted_ftp': 'ftp.sra.ebi.ac.uk/vol1/ERZ150/ERZ1505403/ERR1654124.sub.gz;ftp.sra.ebi.ac.uk'
+                              '/vol1/ERZ150/ERZ1505403/ERZ1505403.md5',
+             'generated_md5': 'be8676c333d8d075c32db548273a9707',
+             'generated_ftp': 'ftp.sra.ebi.ac.uk/vol1/sequence/ERZ150/ERZ1505404/contig.txt.gz',
+             'assembly_type': 'primary metagenome', 'secondary_study_accession': 'ERP123564',
+             'secondary_sample_accession': 'ERS1360485'},
+            {'analysis_accession': 'ERZ1505404', 'study_accession': 'PRJEB39980',
              'analysis_type': 'REFERENCE_ALIGNMENT', 'center_name': 'EMG', 'first_public': '2020-08-22',
              'submitted_md5': 'bbf202d0482c7bb359e5afe9157b578d;3b0213d90cc8902e29817d69bad524a9',
              'submitted_ftp': 'ftp.sra.ebi.ac.uk/vol1/ERZ150/ERZ1505404/ERR1654124.fasta.gz;ftp.sra.ebi.ac.uk'
                               '/vol1/ERZ150/ERZ1505404/ERZ1505404.md5',
              'generated_md5': 'be8676c333d8d075c32db548273a9708',
              'generated_ftp': 'ftp.sra.ebi.ac.uk/vol1/sequence/ERZ150/ERZ1505404/contig.fa.gz',
-             'assembly_type': 'primary metagenome', 'secondary_study_accession': 'ERP123564','secondary_sample_accession': 'ERS1360485'},
-           {'analysis_accession': 'ERZ1505405', 'study_accession': 'PRJEB39980',
+             'assembly_type': 'primary metagenome', 'secondary_study_accession': 'ERP123564',
+             'secondary_sample_accession': 'ERS1360485'},
+            {'analysis_accession': 'ERZ1505405', 'study_accession': 'PRJEB39980',
              'analysis_type': 'SEQUENCE_ASSEMBLY', 'center_name': 'EMG', 'first_public': '2020-08-22',
              'submitted_md5': '99bac814522144e55c30369db7a6bf64;3fb2045485655f1faf735bc0a2919b92',
              'submitted_ftp': 'ftp.sra.ebi.ac.uk/vol1/ERZ150/ERZ1505405/ERR1654123.fasta.gz;ftp.sra.ebi.ac.uk'
                               '/vol1/ERZ150/ERZ1505405/ERZ1505405.md5',
              'generated_md5': '',
              'generated_ftp': '',
-             'assembly_type': 'primary metagenome', 'secondary_study_accession': 'ERP123564', 'secondary_sample_accession': 'ERS1360484'},
-           {'analysis_accession': 'ERZ1505406', 'study_accession': 'PRJEB39980',
+             'assembly_type': 'primary metagenome', 'secondary_study_accession': 'ERP123564',
+             'secondary_sample_accession': 'ERS1360484'},
+            {'analysis_accession': 'ERZ1505406', 'study_accession': 'PRJEB39980',
              'analysis_type': 'SEQUENCE_ASSEMBLY', 'center_name': 'EMG', 'first_public': '2020-08-22',
              'submitted_md5': '589552f30ffa7927c33cd121cab59de1;d63816a798413d5b8c361b87319c9b08',
              'submitted_ftp': 'ftp.sra.ebi.ac.uk/vol1/ERZ150/ERZ1505406/ERZ1505406.md5;ftp.sra.ebi.ac.uk/'
                               'vol1/ERZ150/ERZ1505406/ERR1654119.fasta.gz',
              'generated_md5': 'e0e3c99075ae482083b3e8ca35e401e2',
              'generated_ftp': 'ftp.sra.ebi.ac.uk/vol1/sequence/ERZ150/ERZ1505406/contig.fa.gz',
-             'assembly_type': 'primary metagenome', 'secondary_study_accession': 'ERP123564', 'secondary_sample_accession': 'ERS1360480'}
+             'assembly_type': 'primary metagenome', 'secondary_study_accession': 'ERP123564',
+             'secondary_sample_accession': 'ERS1360480'}
         ]
 
     @patch('src.fetch_assemblies.FetchAssemblies._retrieve_ena_url')
@@ -194,4 +175,3 @@ class TestFetchAssemblies:
         with patch.object(sys, 'argv', test_args):
             fetch_assemblies.main()
         assert mock.called
-

@@ -19,15 +19,51 @@ class Analysis(object):
 
 
 class FetchAssemblies(AbstractDataFetcher):
-    ENA_PORTAL_API_URL = 'https://www.ebi.ac.uk/ena/portal/api/search?dataPortal=metagenome&dccDataOnly=false&result=' \
-                         'analysis&format=json&query=secondary_study_accession=%22{0}%22%20AND%20assembly_type=%22{1}%22&' \
-                         'fields=analysis_accession,study_accession,secondary_study_accession,sample_accession,' \
-                         'secondary_sample_accession,analysis_title,analysis_type,center_name,first_public,last_updated' \
-                         ',study_title,analysis_alias,study_alias,submitted_md5,submitted_ftp,generated_md5,' \
-                         'generated_ftp,sample_alias,broker_name,sample_title,assembly_type&download=true'
-    ENA_PORTAL_API_BY_RUN = 'https://www.ebi.ac.uk/ena/portal/api/search?dataPortal=metagenome&dccDataOnly=false&result' \
-                            '=analysis&format=json&query=analysis_accession=%22{0}%22%20AND%20assembly_type=%22{1}%22&' \
-                            'fields=secondary_study_accession&download=true'
+    ENA_PORTAL_BASE_API_URL = 'https://www.ebi.ac.uk/ena/portal/api/search?'
+
+    ENA_PORTAL_FIELDS = [
+        'analysis_accession',
+        'study_accession',
+        'secondary_study_accession',
+        'sample_accession',
+        'secondary_sample_accession',
+        'analysis_title',
+        'analysis_type',
+        'center_name',
+        'first_public',
+        'last_updated',
+        'study_title',
+        'analysis_alias',
+        'study_alias',
+        'submitted_md5',
+        'submitted_ftp',
+        'generated_md5',
+        'generated_ftp',
+        'sample_alias',
+        'broker_name',
+        'sample_title',
+        'assembly_type',
+    ]
+
+    ENA_PORTAL_RUN_FIELDS = 'secondary_study_accession'
+
+    ENA_PORTAL_PARAMS = [
+        'dataPortal=metagenome',
+        'dccDataOnly=false',
+        'result=analysis',
+        'format=json',
+        'download=true',
+        'fields='
+    ]
+
+    # query
+    ENA_PORTAL_QUERY = "query=secondary_study_accession=%22{0}%22%20AND%20assembly_type=%22{1}%22"
+    ENA_PORTAL_RUN_QUERY = "query=analysis_accession=%22{0}%22%20AND%20assembly_type=%22{1}%22"
+
+    ENA_PORTAL_API_URL = ENA_PORTAL_BASE_API_URL + "&".join(ENA_PORTAL_PARAMS) + ','.join(ENA_PORTAL_FIELDS) + "&" + ENA_PORTAL_QUERY
+    ENA_PORTAL_API_BY_RUN = ENA_PORTAL_BASE_API_URL + "&".join(ENA_PORTAL_PARAMS) + ENA_PORTAL_RUN_FIELDS + "&" + ENA_PORTAL_RUN_QUERY
+
+    #not in use
     ENA_WGS_SET_API_URL = 'https://www.ebi.ac.uk/ena/portal/api/search?result=wgs_set&query=study_accession=' \
                           '%22{0}%22&fields=study_accession,assembly_type,scientific_name,fasta_file&format=tsv'
 
@@ -45,10 +81,7 @@ class FetchAssemblies(AbstractDataFetcher):
         assembly_group.add_argument("-as", "--assemblies", nargs='+',
                                     help="Assembly ERZ accession(s), whitespace separated. "
                                          "Use to download only certain project assemblies")
-        # TODO: Valid what's the correct value for binned metagenomes!
         # TODO: Also the older INSDC style metagenome assemblies produced by MGnify are not support that way at moment
-        # TODO: The returned assembly type for those is an empty string, this needs to be handle differently
-        # TODO: I imagine you could retrieve all assembly types and filter these empty stringed assembly types
         parser.add_argument('--assembly-type', help="Assembly type",
                                     choices=["primary metagenome", "Metagenome-Assembled Genome (MAG)",
                                              "binned metagenome", "metatranscriptome"],
@@ -74,29 +107,32 @@ class FetchAssemblies(AbstractDataFetcher):
             self.args.projects = self._get_project_accessions_from_assemblies(self.assemblies)
 
     def _retrieve_project_info_from_api(self, project_accession):
-        #self._retrieve_insdc_assemblies(project_accession)
+        #self._retrieve_insdc_assemblies(primary_project_accession)
         data = self._retrieve_ena_url(self.ENA_PORTAL_API_URL.format(project_accession, self.assembly_type))
-        print(len(data))
         logging.info("Retrieved {count} assemblies for study {project_accession} from "
                      "the ENA Portal API.".format(count=len(data), project_accession=project_accession))
-        [logging.info("The generated ftp location for assembly {} is not available yet".format(d['analysis_accession'])) for d in data if not d['generated_ftp']]
-        new_data = [d for d in data if d['analysis_type'] =='SEQUENCE_ASSEMBLY' and d['generated_ftp']]
-        return list(map(self.map_datafields_ftp_2_data, new_data))
-
-    def map_datafields_ftp_2_data(self, assemblydata):
-        is_submitted_file = assemblydata['submitted_ftp'] is not ''
-        assemblydata['STUDY_ID'] = assemblydata.pop('secondary_study_accession')
-        assemblydata['SAMPLE_ID'] = assemblydata.pop('secondary_sample_accession')
-        assemblydata['DATA_FILE_PATH'] = assemblydata.pop('generated_ftp')
-        assemblydata['ANALYSIS_ID'] = assemblydata.pop('analysis_accession')
-        is_valid_filetype = self._is_rawdata_filetype(assemblydata['DATA_FILE_PATH']) #filter empties and non fasta
-        if is_valid_filetype:
-            assemblydata['DATA_FILE_PATH'], assemblydata['file'], assemblydata['MD5'] = self._get_raw_filenames(
-                assemblydata['DATA_FILE_PATH'],
-                assemblydata.pop('generated_md5'),
-                assemblydata['ANALYSIS_ID'],
-                is_submitted_file)
-            return assemblydata
+        mapped_data = []
+        for d in data:
+            if not d['generated_ftp']:
+                logging.info(
+                    "The generated ftp location for assembly {} is not available yet".format(d['analysis_accession']))
+            if d['analysis_type'] == 'SEQUENCE_ASSEMBLY' and d['generated_ftp']:
+                if self._is_rawdata_filetype(os.path.basename(d['generated_ftp'])):  #filter filenames not fasta
+                    raw_data_file_path, file_, md5_ = self._get_raw_filenames(
+                        d.get('generated_ftp'),
+                        d.get('generated_md5'),
+                        d.get('analysis_accession'),
+                        bool(d.get('submitted_ftp'))
+                    )
+                    mapped_data.append({
+                        'STUDY_ID': d.get('secondary_study_accession'),
+                        'SAMPLE_ID': d.get('secondary_sample_accession'),
+                        'ANALYSIS_ID': d.get('analysis_accession'),
+                        'DATA_FILE_PATH': raw_data_file_path,
+                        'file': file_,
+                        'MD5': md5_
+                    })
+        return mapped_data
 
     def _filter_accessions_from_args(self, assembly_data, assembly_accession_field):
         if self.assemblies:
@@ -115,6 +151,19 @@ class FetchAssemblies(AbstractDataFetcher):
             'scientific_name': 'n/a',
             'md5': assembly['MD5']
         }
+
+    def _get_project_accessions_from_assemblies(self, assemblies):
+        project_list = set()
+        for assembly in assemblies:
+            data = self._retrieve_ena_url(self.ENA_PORTAL_API_BY_RUN.format(assembly, self.assembly_type))
+            [project_list.add(d['secondary_study_accession']) for d in data]
+        return project_list
+
+    """
+    The following functions are for old-style assemblies and are not in use.
+    Remove after resubmission of old assemblies and replace with simple fetch of INSDC submitted files
+    (with no renaming or file reformatting).
+    """
 
     def _get_study_wgs_analyses(self, primary_project_accession):
         return ENADAO(self.enadao).retrieve_assembly_data(primary_project_accession)
@@ -138,17 +187,22 @@ class FetchAssemblies(AbstractDataFetcher):
         return combine_analyses
 
     def _retrieve_insdc_assemblies(self, study_accession):
-        # Step 1: Retrieve analysis results including assembly type from ENA Portal API
+        # not in use yet. needs primary accession.
         mapped_data = []
-        json_data = self._retrieve_ena_url(self.ENA_WGS_SET_API_URL.format('PRJEB22493'))
+        json_data = self._retrieve_ena_url(self.ENA_WGS_SET_API_URL.format(study_accession))
         logging.info("Retrieved {count} assemblies of type wgs_set from ENA Portal API.".format(count=len(json_data)))
         if len(json_data):
             study_assembly_data = self._get_study_wgs_analyses(study_accession)
             study_analyses = self._combine_analyses(json_data, study_assembly_data)
             self._download_insdc_assemblies(study_analyses, study_accession)
             for data in study_analyses:
-                mapped_out = self.map_insdc_data_for_files(data, study_accession)
-                mapped_data.append(mapped_out)
+                mapped_data.append({
+                    'study_id': study_accession,
+                    'sample_id': data['SAMPLE_ID'],
+                    'analysis_id': data['accession'],
+                    'file': data['ASSEMBLY_ID'] + '.fasta.gz',
+                    'file_path': data['DATA_FILE_PATH']
+                })
             self.add_insdc_to_file(mapped_data, study_accession)
         else:
             logging.info("No INSDC style assemblies. Skipping...")
@@ -185,16 +239,6 @@ class FetchAssemblies(AbstractDataFetcher):
         logging.debug('Finished re-mapping fasta file')
         self.write_md5(fasta_file)
 
-    @staticmethod
-    def map_insdc_data_for_files(self, insdc_data, study_accession,):
-        return {
-            'study_id': study_accession,
-            'sample_id': insdc_data['SAMPLE_ID'],
-            'analysis_id': insdc_data['accession'],
-            'file': insdc_data['ASSEMBLY_ID'] + '.fasta.gz',
-            'file_path': insdc_data['DATA_FILE_PATH'],
-        }
-
     def add_insdc_to_file(self, data, study_accession):
         headers = ['study_id', 'sample_id', 'analysis_id', 'file', 'file_path']
         with open(self.get_project_insdc_txt_file(study_accession), 'w') as txt_file:
@@ -202,13 +246,6 @@ class FetchAssemblies(AbstractDataFetcher):
             for d in data:
                 json.dump(d, txt_file)
                 txt_file.write('/n')
-
-    def _get_project_accessions_from_assemblies(self, assemblies):
-        project_list = set()
-        for assembly in assemblies:
-            data = self._retrieve_ena_url(self.ENA_PORTAL_API_BY_RUN.format(assembly, self.assembly_type))
-            [project_list.add(d['secondary_study_accession']) for d in data]
-        return project_list
 
 
 def main():
