@@ -1,6 +1,8 @@
 import os
 import pytest
 import sys
+from pathlib import Path
+
 from unittest.mock import patch
 
 from src import fetch_assemblies
@@ -152,20 +154,20 @@ class TestFetchAssemblies:
         assemblies = fetch._retrieve_project_info_from_api(study_accession)
         for x in assemblies:
             for file in x['file']:
-                assembly_path = os.path.join(tmpdir, file)
-                open(assembly_path, 'a').close()
+                assembly_path = tmpdir / file
+                Path(str(assembly_path)).touch()
         assert len(assemblies) == 1
-        assert os.listdir(tmpdir) == [valid_assembly_file]
-        assert not fetch._is_file_valid(assembly_path, valid_assembly_md5)
-        project_dir = os.path.join(tmpdir, study_accession)
-        os.mkdir(project_dir)
-        os.chdir(tmpdir)
+        assert os.listdir(str(tmpdir)) == [valid_assembly_file]
+        assert not fetch._is_file_valid(str(assembly_path), valid_assembly_md5)
+        project_dir = tmpdir / study_accession
+        os.mkdir(str(project_dir))
+        os.chdir(str(tmpdir))
         fetch.write_project_files(study_accession, assemblies)
-        assert [os.path.exists(project_dir + x) for x in download_files]
-        with open(os.path.join(project_dir, 'download')) as f:
+        assert [os.path.exists(str(project_dir / x)) for x in download_files]
+        with open(str(project_dir / 'download')) as f:
             download_data = f.readlines()
             assert len(download_data) == 1
-        with open(os.path.join(project_dir, 'ERP123564.txt')) as t:
+        with open(str(project_dir / 'ERP123564.txt')) as t:
             txt_data = t.readlines()
             assert len(txt_data) == 2
 

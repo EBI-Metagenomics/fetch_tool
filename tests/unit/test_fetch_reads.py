@@ -1,10 +1,7 @@
-import json
 import os
 import pytest
-import shutil
 import sys
-
-from copy import deepcopy
+from pathlib import Path
 
 from unittest.mock import patch
 
@@ -147,21 +144,21 @@ class TestFetchReads:
         runs = fetch._retrieve_project_info_from_api(study_accession)
         for x in runs:
             for file in x['file']:
-                run_path = os.path.join(tmpdir, file)
-                open(run_path, 'a').close()
+                run_path = tmpdir / file
+                Path(str(run_path)).touch()
         assert len(runs) == 1
-        assert os.listdir(tmpdir) == ['ERR2777790_2.fastq.gz', 'ERR2777790_1.fastq.gz']
+        assert os.listdir(str(tmpdir)).sort() == ['ERR2777790_2.fastq.gz', 'ERR2777790_1.fastq.gz'].sort()
         for x, y in [valid_file_for, valid_file_rev]:
-            assert not fetch._is_file_valid(os.path.join(tmpdir, x), y)
-        project_dir = os.path.join(tmpdir, study_accession)
-        os.mkdir(project_dir)
-        os.chdir(tmpdir)
+            assert not fetch._is_file_valid(str(tmpdir / x), y)
+        project_dir = tmpdir / study_accession
+        os.mkdir(str(project_dir))
+        os.chdir(str(tmpdir))
         fetch.write_project_files(study_accession, runs)
-        assert [os.path.exists(project_dir + x) for x in download_files]
-        with open(os.path.join(project_dir, 'download')) as f:
+        assert [os.path.exists(str(project_dir / x)) for x in download_files]
+        with open(str(project_dir / 'download')) as f:
             download_data = f.readlines()
             assert len(download_data) == 2
-        with open(os.path.join(project_dir, 'ERP110686.txt')) as t:
+        with open(str(project_dir / 'ERP110686.txt')) as t:
             txt_data = t.readlines()
             assert len(txt_data) == 2
 
