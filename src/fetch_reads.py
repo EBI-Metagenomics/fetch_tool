@@ -3,6 +3,7 @@ import logging
 import os
 
 from src.abstract_fetch import AbstractDataFetcher
+from .exceptions import NoDataError
 
 path_re = re.compile(r'(.*)/(.*)')
 
@@ -74,7 +75,10 @@ class FetchReads(AbstractDataFetcher):
             self.args.projects = self._get_project_accessions_from_runs(self.runs)
 
     def _retrieve_project_info_from_api(self, project_accession):
-        data = self._retrieve_ena_url(self.ENA_PORTAL_API_URL.format(project_accession))
+        raise_error = False if len(self.projects) > 1 else True     #allows script to continue to next project if one fails
+        data = self._retrieve_ena_url(self.ENA_PORTAL_API_URL.format(project_accession), raise_on_204=raise_error)
+        if not data:
+            return
         logging.info("Retrieved {count} runs for study {project_accession} from "
                      "the ENA Portal API.".format(count=len(data), project_accession=project_accession))
         mapped_data = []
@@ -128,8 +132,11 @@ class FetchReads(AbstractDataFetcher):
     def _get_project_accessions_from_runs(self, runs):
         project_list = set()
         for run in runs:
-            data = self._retrieve_ena_url(self.ENA_PORTAL_API_BY_RUN.format(run))
-            [project_list.add(d['secondary_study_accession']) for d in data]
+            data = self._retrieve_ena_url(self.ENA_PORTAL_API_BY_RUN.format(run), raise_on_204=False)
+            if data:
+                [project_list.add(d['secondary_study_accession']) for d in data]
+        if not len(project_list):
+            raise NoDataError(self.NO_DATA_MSG)
         return project_list
 
 

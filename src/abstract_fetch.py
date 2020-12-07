@@ -14,6 +14,7 @@ import pandas as pd
 import requests
 import ftplib
 from subprocess import call
+from .exceptions import (ENAFetch204, ENAFetch401, ENAFetchFail)
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -28,6 +29,7 @@ class AbstractDataFetcher(ABC):
     ACCESSION_FIELD = None
     ACCESSION_REGEX = r'([EDS]R[RZS]\d+)'
     PROGRAM_EXIT_MSG = "Program will exit now!"
+    NO_DATA_MSG = 'No entries found!'
 
     def __init__(self, argv=sys.argv[1:]):
         self.args = self._parse_args(argv)
@@ -149,13 +151,15 @@ class AbstractDataFetcher(ABC):
 
     def fetch_project(self, project_accession):
         new_data = self.retrieve_project(project_accession)
+        if not new_data: #exit function if there is no data and skip to the next study
+            return
         if not self.desc_file_only and not self.force_mode:
             logging.info("Filtering study entries...")
             logging.info("Number of entries before filtering: {}".format(len(new_data)))
             new_data = self.filter_by_accessions(new_data)
             logging.info("Number of entries after filtering: {}.".format(len(new_data)))
         if len(new_data) == 0:
-            logging.warning('No entries found!')
+            logging.warning(self.NO_DATA_MSG)
             return
         secondary_project_accession = project_accession
 
@@ -372,30 +376,37 @@ class AbstractDataFetcher(ABC):
         from src.oracle_db_connection import OracleDBConnection
         return OracleDataAccessObject(OracleDBConnection(user, password, host, port, instance))
 
-    def _retrieve_ena_url(self, url):
+    def _retrieve_ena_url(self, url, raise_on_204=True):
+        """Request json from ENA
+        raise_on_204: raise ENAFetch204 if the response status code i 204
+        """
         attempt = 0
-        while True:
+        while attempt <= self.config['url_max_attempts']:
             try:
                 response = requests.get(url, auth=(self.ENA_API_USER, self.ENA_API_PASSWORD))
                 if response.status_code == 200:
-                    break
+                    return response.json()
                 if response.status_code == 204:
-                    logging.warning("Could not retrieve any runs/assemblies")
+                    if raise_on_204:
+                        raise ENAFetch204('No Runs/Assemblies found. Check if study is metagenomic')
+                    logging.info('Run/Assembly may not be metagenomic. Skipping...')
+                    return
                 elif response.status_code == 401:
-                    logging.warning("Invalid Username or Password!")
+                    raise ENAFetch401("Invalid Username or Password!")
                 else:
                     logging.warning("Received the following unknown response code from the "
                                     "Portal API server:\n{}".format(response.status_code))
-            except requests.exceptions.RequestException as e:  # check syntax
+            except requests.exceptions.RequestException as e:
                 logging.warning("Request exception. "
                                 "Exception:\n {}".format(e))
             attempt += 1
-            if attempt >= self.config['url_max_attempts']:
-                logging.critical("Failed to open url " + url + " after " + str(
-                    attempt) + " attempts")
-                sys.exit(1)
-        data = response.json()
-        return data
+
+        error_message = "Failed to open url " + \
+                        url + \
+                        " after " + \
+                        str(attempt) + " attempts. "
+
+        raise ENAFetchFail(error_message)
 
     @staticmethod
     def _is_file_valid(dest, file_md5):
@@ -459,7 +470,7 @@ class AbstractDataFetcher(ABC):
         """
         server = 'ftp.dcc-private.ebi.ac.uk'
         path_list = url.split('ebi.ac.uk/')[-1].split('/')[:-1]
-        path = os.path.join(path_list)
+        path = '/'.join(path_list)
         file_name = os.path.basename(url)
         attempt = 0
         while attempt <= 3:

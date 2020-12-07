@@ -7,6 +7,7 @@ import json
 from src.ENADAO import ENADAO
 
 from src.abstract_fetch import AbstractDataFetcher
+from .exceptions import NoDataError
 
 path_re = re.compile(r'(.*)/(.*)')
 
@@ -67,8 +68,6 @@ class FetchAssemblies(AbstractDataFetcher):
     ENA_WGS_SET_API_URL = 'https://www.ebi.ac.uk/ena/portal/api/search?result=wgs_set&query=study_accession=' \
                           '%22{0}%22&fields=study_accession,assembly_type,scientific_name,fasta_file&format=tsv'
 
-    PROGRAM_EXIT_MSG = "Program will exit now!"
-
     def __init__(self, argv=None):
         self.ACCESSION_FIELD = 'ANALYSIS_ID'
         self.assemblies = None
@@ -108,7 +107,10 @@ class FetchAssemblies(AbstractDataFetcher):
 
     def _retrieve_project_info_from_api(self, project_accession):
         #self._retrieve_insdc_assemblies(primary_project_accession)
-        data = self._retrieve_ena_url(self.ENA_PORTAL_API_URL.format(project_accession, self.assembly_type))
+        raise_error = False if len(self.projects) > 1 else True     #allows script to continue to next project if one fails
+        data = self._retrieve_ena_url(self.ENA_PORTAL_API_URL.format(project_accession, self.assembly_type), raise_on_204=raise_error)
+        if not data:
+            return
         logging.info("Retrieved {count} assemblies for study {project_accession} from "
                      "the ENA Portal API.".format(count=len(data), project_accession=project_accession))
         mapped_data = []
@@ -155,8 +157,12 @@ class FetchAssemblies(AbstractDataFetcher):
     def _get_project_accessions_from_assemblies(self, assemblies):
         project_list = set()
         for assembly in assemblies:
-            data = self._retrieve_ena_url(self.ENA_PORTAL_API_BY_RUN.format(assembly, self.assembly_type))
-            [project_list.add(d['secondary_study_accession']) for d in data]
+            data = self._retrieve_ena_url(self.ENA_PORTAL_API_BY_RUN.format(assembly, self.assembly_type),
+                                          raise_on_204=False)
+            if data:
+                [project_list.add(d['secondary_study_accession']) for d in data]
+        if not len(project_list):
+            raise NoDataError(self.NO_DATA_MSG)
         return project_list
 
     """
