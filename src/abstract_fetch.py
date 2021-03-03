@@ -475,7 +475,7 @@ class AbstractDataFetcher(ABC):
         attempt = 0
         while attempt <= 3:
             try:
-                with ftplib.FTP(server) as ftp:
+                with ftplib.FTP(server, timeout=300) as ftp:
                     logging.info("Downloading file from FTP server..." + url)
                     logging.info('Logging in...')
                     ftp.login(self.ENA_API_USER, self.ENA_API_PASSWORD)
