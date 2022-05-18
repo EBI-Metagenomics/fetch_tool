@@ -21,7 +21,6 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install -U -r requirements-test.txt
           pip install -r requirements-test.txt
           python setup.py sdist
       - name: 🧪 - Testing
