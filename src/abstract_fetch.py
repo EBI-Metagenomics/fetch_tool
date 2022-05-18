@@ -466,7 +466,7 @@ class AbstractDataFetcher(ABC):
             "url": url
         }
         if self.private_mode:
-            request_params.auth = (self.ENA_API_USER, self.ENA_API_PASSWORD)
+            request_params["auth"] = (self.ENA_API_USER, self.ENA_API_PASSWORD)
         while attempt <= self.config["url_max_attempts"]:
             try:
                 response = requests.get(**request_params)
