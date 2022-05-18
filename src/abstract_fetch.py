@@ -14,13 +14,9 @@ import pandas as pd
 import requests
 import ftplib
 from subprocess import call
-from .exceptions import (ENAFetch204, ENAFetch401, ENAFetchFail)
+from src.exceptions import (ENAFetch204, ENAFetch401, ENAFetchFail)
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
-
-config_file = os.getenv('FETCH_TOOL_CONFIG',
-                        os.path.realpath(os.path.join(script_dir, os.pardir,
-                                                      "fetchdata-config-default.json")))
+CONFIG_FILE = os.getenv('FETCH_TOOL_CONFIG', None)
 
 
 class AbstractDataFetcher(ABC):
@@ -39,7 +35,12 @@ class AbstractDataFetcher(ABC):
         self.create_output_dir(self.args.dir)
         self.base_dir = self.args.dir
 
-        self.config = load_config(self.args.config_file)
+        if not self.args.config_file and not CONFIG_FILE:
+            raise ValueError("Missing configuration file. It shoud be provided using -c or setting the env variable $FETCH_TOOL_CONFIG")
+
+        with open(self.args.config_file or CONFIG_FILE) as f:
+            self.config = json.load(f)
+
         self.ENA_API_USER = self.config['enaAPIUsername']
         self.ENA_API_PASSWORD = self.config['enaAPIPassword']
 
@@ -105,7 +106,7 @@ class AbstractDataFetcher(ABC):
         parser.add_argument('--private', help='Use when fetching private data', action='store_true')
         parser.add_argument('-i', '--interactive', help='interactive mode - allows you to skip failed downloads.',
                             action='store_true')
-        parser.add_argument('-c', '--config-file', help='Alternative config file', default=config_file)
+        parser.add_argument('-c', '--config-file', required=False, help='Alternative config file')
         parser.add_argument('--fix-desc-file', help='Fixed runs in project description file', action='store_true')
         parser = self.add_arguments(parser)
         return parser.parse_args(argv)
@@ -573,7 +574,3 @@ def md5(fname):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
-
-def load_config(config_file):
-    with open(config_file) as f:
-        return json.load(f)

@@ -7,7 +7,7 @@ import json
 from src.ENADAO import ENADAO
 
 from src.abstract_fetch import AbstractDataFetcher
-from .exceptions import NoDataError
+from src.exceptions import NoDataError
 
 path_re = re.compile(r'(.*)/(.*)')
 
