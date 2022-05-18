@@ -1,9 +1,9 @@
-'''
+"""
 Created on 1 Apr 2015
 
 @author: maq
 @author: Maxim Scheremetjew
-'''
+"""
 
 import cx_Oracle
 
@@ -20,19 +20,19 @@ class OracleDBConnection:
         self.connection = None
 
     def __enter__(self):
-        if (self.connection is not None):
+        if self.connection is not None:
             raise RuntimeError("Connection already exists")
         connStr = None
         if not self.host and not self.port:
-            connStr = "%s/%s@%s" % (self.user,
-                                    self.password,
-                                    self.instance)
+            connStr = "%s/%s@%s" % (self.user, self.password, self.instance)
         else:
-            connStr = "%s/%s@%s:%s/%s" % (self.user,
-                                          self.password,
-                                          self.host,
-                                          self.port,
-                                          self.instance)
+            connStr = "%s/%s@%s:%s/%s" % (
+                self.user,
+                self.password,
+                self.host,
+                self.port,
+                self.instance,
+            )
         self.connection = cx_Oracle.connect(connStr)
         return self.connection
 
@@ -41,5 +41,5 @@ class OracleDBConnection:
         self.connection = None
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
