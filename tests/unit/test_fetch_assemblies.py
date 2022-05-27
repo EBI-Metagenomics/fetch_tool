@@ -1,11 +1,11 @@
 import os
-import pytest
 import sys
 from pathlib import Path
-
 from unittest.mock import patch
 
-from src import fetch_assemblies
+import pytest
+
+from fetchtool import fetch_assemblies
 
 FIXTURES_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), os.pardir, "fixtures")
@@ -183,7 +183,7 @@ class TestFetchAssemblies:
             },
         ]
 
-    @patch("src.fetch_assemblies.FetchAssemblies._retrieve_ena_url")
+    @patch("fetchtool.fetch_assemblies.FetchAssemblies._retrieve_ena_url")
     def test_process_additional_args_should_find_study_accessions_for_assemblies(
         self, mocked_class1, tmpdir
     ):
@@ -199,7 +199,7 @@ class TestFetchAssemblies:
         fetch._process_additional_args()
         assert fetch.args.projects == {study_accession}
 
-    @patch("src.fetch_assemblies.FetchAssemblies._retrieve_ena_url")
+    @patch("fetchtool.fetch_assemblies.FetchAssemblies._retrieve_ena_url")
     def test_retrieve_project_should_return_only_valid_assemblies_and_check_md5(
         self, mocked_class1, tmpdir
     ):

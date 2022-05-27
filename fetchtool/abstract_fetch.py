@@ -1,25 +1,43 @@
-import hashlib
-from abc import ABC, abstractmethod
-import json
-import os
-import logging
-import sys
-import argparse
-import re
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
+# Copyright 2018-2022 EMBL - European Bioinformatics Institute
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import argparse
 import copy
-from filelock import UnixFileLock
-from pandas.errors import EmptyDataError
+import ftplib
+import hashlib
+import json
+import logging
+import os
+import re
+import sys
+from abc import ABC, abstractmethod
+from subprocess import call
+
 import pandas as pd
 import requests
-import ftplib
-from subprocess import call
-from src.exceptions import ENAFetch204, ENAFetch401, ENAFetchFail
+from filelock import UnixFileLock
+from pandas.errors import EmptyDataError
+
+from fetchtool.exceptions import ENAFetch204, ENAFetch401, ENAFetchFail
 
 CONFIG_FILE = os.getenv("FETCH_TOOL_CONFIG", None)
 
 PRIVATE_ENA_FTP = "ftp.dcc-private.ebi.ac.uk"
 PUBLIC_ENA_FTP = "ftp.ebi.ac.uk"
+
 
 class AbstractDataFetcher(ABC):
     DEFAULT_HEADERS = [
@@ -450,8 +468,8 @@ class AbstractDataFetcher(ABC):
 
     @staticmethod
     def load_oracle_connection(user, password, host, port, instance):
-        from src.oracle_db_access_object import OracleDataAccessObject
-        from src.oracle_db_connection import OracleDBConnection
+        from fetchtool.oracle_db_access_object import OracleDataAccessObject
+        from fetchtool.oracle_db_connection import OracleDBConnection
 
         return OracleDataAccessObject(
             OracleDBConnection(user, password, host, port, instance)
@@ -462,9 +480,7 @@ class AbstractDataFetcher(ABC):
         raise_on_204: raise ENAFetch204 if the response status code i 204
         """
         attempt = 0
-        request_params = {
-            "url": url
-        }
+        request_params = {"url": url}
         if self.private_mode:
             request_params["auth"] = (self.ENA_API_USER, self.ENA_API_PASSWORD)
         while attempt <= self.config["url_max_attempts"]:

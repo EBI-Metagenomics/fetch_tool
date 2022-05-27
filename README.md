@@ -1,14 +1,44 @@
-Microbiome Informatics ENA fetch tool
-=====================================
+# Microbiome Informatics ENA fetch tool
 
 Set of tools which allows you to fetch RAW read and assembly files from the European Nucleotide Archive (ENA).
 
+## How to set up your development environment
 
-Install fetch tool
-==================
+We recommend you to use [miniconda|conda](https://docs.conda.io/en/latest/miniconda.html) to manage the environment.
 
-Using Conda
------------
+Clone the repo and install the requirements.
+
+```
+$ git clone git@github.com:EBI-Metagenomics/fetch_tool.git
+$ cd fetch_tool
+$ # activate anv (conda activate xxx)
+$ pip install -r requirements-dev.txt
+```
+
+### Pre-commit hooks
+
+Setup the git [pre-commit hook](https://pre-commit.com/):
+
+```bash
+pre-commit install
+```
+
+*Why?*
+
+pre-commit will run a set of pre-configured tools before allowing you to commit files. You can find the currently configure hooks and configurations in [.pre-commit-config.yaml](./.pre-commit-config.yaml)
+
+### Tests
+
+This repo uses [pytest](https://docs.pytest.org).
+
+To run the test suite:
+```bash
+pytest
+```
+
+## Install fetch tool
+
+### Using Conda
 
 ```bash
 $ conda create -q -n fetch_tool python=3.8
@@ -34,11 +64,9 @@ Install from private Git repo with access token (access token can be found in ce
 $ pip install -U git+https://{access_token}@github.com/EBI-Metagenomics/fetch_tool@master
 ```
 
-Fetch read files (amplicon and WGS data)
-=====
+## Fetch read files (amplicon and WGS data)
 
-Usage
------
+### Usage
 
 ```bash
 $ fetch-read-tool -h
@@ -74,19 +102,17 @@ optional arguments:
                         downloads.
 ```
 
-Example
---------
+### Example
+
 
 Download amplicon study:
 
     $ fetch-read-tool -p SRP062869 -c fetchdata-config-local.json -v -d /home/<user>/temp/
 
-Fetch assembly files
-=====
+## Fetch assembly files
 
-Usage
------
 
+### Usage
 
     $ fetch-assembly-tool -h
     usage: fetch-assembly-tool [-h] -p PROJECT
@@ -115,8 +141,7 @@ Usage
       -i, --interactive     interactive mode - allows you to skip failed
                             downloads.
 
-Example
---------
+### Example
 
 Download assembly study:
 

@@ -1,5 +1,6 @@
-import cx_Oracle
 import logging
+
+import cx_Oracle
 
 __author__ = "maxim"
 

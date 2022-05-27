@@ -1,9 +1,10 @@
-import re
+#!/usr/bin/env python
 import logging
 import os
+import re
 
-from src.abstract_fetch import AbstractDataFetcher
-from src.exceptions import NoDataError
+from fetchtool.abstract_fetch import AbstractDataFetcher
+from fetchtool.exceptions import NoDataError
 
 path_re = re.compile(r"(.*)/(.*)")
 
@@ -59,6 +60,8 @@ class FetchReads(AbstractDataFetcher):
         + ENA_PORTAL_RUN_QUERY
     )
 
+    ENA_FILEREPORT_URL = "https://www.ebi.ac.uk/ena/portal/api/filereport"
+
     def __init__(self, argv=None):
         self.runs = None
         self.ACCESSION_FIELD = "RUN_ID"
@@ -105,11 +108,46 @@ class FetchReads(AbstractDataFetcher):
         raise_error = (
             False if len(self.projects) > 1 else True
         )  # allows script to continue to next project if one fails
-        data = self._retrieve_ena_url(
-            self.ENA_PORTAL_API_URL.format(project_accession), raise_on_204=raise_error
-        )
+
+        data = None
+        fetch_204_ex = None
+        try:
+            data = self._retrieve_ena_url(
+                self.ENA_PORTAL_API_URL.format(project_accession),
+                raise_on_204=raise_error,
+            )
+        except ENAFetch204 as ex:
+            logging.info(
+                "The data portal API returned a 204, trying the filereport API"
+            )
+            fetch_204_ex = ex
+
+        # Alternative endpoint, the filereport which is the used on the ENA website
+        if fetch_204_ex is None:
+            file_report_url = (
+                self.ENA_FILEREPORT_URL
+                + "?"
+                + "&".join(
+                    [
+                        "&".join(self.ENA_PORTAL_PARAMS)
+                        + ",".join(self.ENA_PORTAL_FIELDS),
+                        f"accession={project_accession}",
+                    ]
+                )
+            )
+            data = self._retrieve_ena_url(file_report_url)
+            if not data:
+                logging.error(
+                    f"It was not possible to fetch data from the Portal API or the Filereport API for project {project_accession}"
+                )
+                return
+
         if not data:
+            logging.error(
+                f"It was not possible to fetch data from the Portal API for project {project_accession}"
+            )
             return
+
         logging.info(
             "Retrieved {count} runs for study {project_accession} from "
             "the ENA Portal API.".format(
@@ -120,7 +158,7 @@ class FetchReads(AbstractDataFetcher):
         for d in data:
             if not d["fastq_ftp"]:
                 logging.info(
-                    "The generated ftp location for assembly {} is not available yet".format(
+                    "The generated ftp location for the reads {} is not available yet".format(
                         d["run_accession"]
                     )
                 )

@@ -1,8 +1,22 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# Copyright 2018-2022 EMBL - European Bioinformatics Institute
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import csv
 import os
-
 import subprocess
-
-import unittest
 
 import pytest
 
@@ -10,9 +24,14 @@ FIXTURES_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), os.pardir, "fixtures")
 )
 
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+
 
 def call_cmd(cmd):
-    ret = subprocess.call(cmd, stdout=subprocess.PIPE, shell=True)
+    # FIXME: this pythonpath hack is _very_ ugly
+    ret = subprocess.call(
+        f"PYTHONPATH={root_path}:$PYTHONPATH {cmd}", stdout=subprocess.PIPE, shell=True
+    )
     assert ret == 0
 
 
@@ -36,10 +55,13 @@ def validate_full_study(tmpdir):
     study_dir = os.path.join(tmpdir, study_id)
     assert os.path.exists(study_dir)
     study_file = os.path.join(study_dir, study_id + ".txt")
+
     with open(study_file) as f:
         study_data = f.readlines()
 
-    assert study_data[0].strip().split("\t") == [
+    rows = list(csv.reader(study_data, delimiter="\t"))
+
+    assert rows[0] == [
         "study_id",
         "sample_id",
         "run_id",
@@ -50,17 +72,34 @@ def validate_full_study(tmpdir):
         "file",
         "file_path",
     ]
-    assert (
-        study_data[1].strip()
-        == "ERP111374\tSRS2137356\tn/a\tERZ773362\tn/a\tn/a\tn/a\tERZ773362.fasta.gz\t"
-        "ftp.sra.ebi.ac.uk/vol1/ERZ773/ERZ773362/SRR5465818.fasta.gz"
-    )
 
-    assert (
-        study_data[2].strip()
-        == "ERP111374\tSRS2137355\tn/a\tERZ773363\tn/a\tn/a\tn/a\tERZ773363.fasta.gz\t"
-        "ftp.sra.ebi.ac.uk/vol1/ERZ773/ERZ773363/SRR5465817.fasta.gz"
-    )
+    assert rows[1] == [
+        "ERP111374",
+        "SRS2137356",
+        "n/a",
+        "ERZ773362",
+        "n/a",
+        "n/a",
+        "n/a",
+        "ERZ773362.fasta.gz",
+        # -> old structure, remove after checking with ENA
+        # "ftp.sra.ebi.ac.uk/vol1/ERZ773/ERZ773362/SRR5465818.fasta.gz",
+        "ftp.sra.ebi.ac.uk/vol1/sequence/ERZ773/ERZ773362/contig.fa.gz",
+    ]
+
+    assert rows[2] == [
+        "ERP111374",
+        "SRS2137355",
+        "n/a",
+        "ERZ773363",
+        "n/a",
+        "n/a",
+        "n/a",
+        "ERZ773363.fasta.gz",
+        # -> old structure, remove after checking with ENA
+        # "ftp.sra.ebi.ac.uk/vol1/ERZ773/ERZ773363/SRR5465817.fasta.gz",
+        "ftp.sra.ebi.ac.uk/vol1/sequence/ERZ773/ERZ773363/contig.fa.gz",
+    ]
 
     download_file = os.path.join(study_dir, "download")
     with open(download_file) as f:
@@ -74,13 +113,10 @@ def validate_full_study(tmpdir):
         assert os.path.getsize(f_path) > 0
 
 
-@pytest.mark.skipif(
-    os.environ.get("TRAVIS") == "true", reason="Skipped as running on TravisCI"
-)
 class TestFetchCompleteStudyAssemblies:
     def test_fetch_all_study_data(self, tmpdir):
         with WorkingDir(tmpdir):
             call_cmd(
-                "fetch-assembly-tool -p {} -v -v -d {}".format(study_id, str(tmpdir))
+                "fetch_assemblies.py -p {} -v -v -d {}".format(study_id, str(tmpdir))
             )
             validate_full_study(tmpdir)
