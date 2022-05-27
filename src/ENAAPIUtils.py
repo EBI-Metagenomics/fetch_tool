@@ -42,37 +42,70 @@ class InvalidUsernamePasswordException(Exception):
 
 
 def get_sample_search_fields():
-    return ['altitude', 'broker_name', 'center_name', 'checklist',
-            'collected_by', 'collection_date', 'country',
-            'depth', 'elevation', 'environment_biome', 'environment_feature',
-            'environment_material',
-            'environmental_package', 'experimental_factor', 'first_public',
-            'host_body_site', 'host_common_name',
-            'host_genotype', 'host_growth_conditions', 'host_phenotype',
-            'host_scientific_name', 'host_sex',
-            'host_status', 'host_tax_id', 'investigation_type', 'last_updated',
-            'location', 'ph', 'project_name',
-            'region', 'salinity', 'sample_accession', 'sample_alias',
-            'sample_collection', 'description',
-            'secondary_sample_accession', 'sequencing_method', 'status_id',
-            'target_gene', 'temperature', 'tax_id',
-            'scientific_name']
+    return [
+        "altitude",
+        "broker_name",
+        "center_name",
+        "checklist",
+        "collected_by",
+        "collection_date",
+        "country",
+        "depth",
+        "elevation",
+        "environment_biome",
+        "environment_feature",
+        "environment_material",
+        "environmental_package",
+        "experimental_factor",
+        "first_public",
+        "host_body_site",
+        "host_common_name",
+        "host_genotype",
+        "host_growth_conditions",
+        "host_phenotype",
+        "host_scientific_name",
+        "host_sex",
+        "host_status",
+        "host_tax_id",
+        "investigation_type",
+        "last_updated",
+        "location",
+        "ph",
+        "project_name",
+        "region",
+        "salinity",
+        "sample_accession",
+        "sample_alias",
+        "sample_collection",
+        "description",
+        "secondary_sample_accession",
+        "sequencing_method",
+        "status_id",
+        "target_gene",
+        "temperature",
+        "tax_id",
+        "scientific_name",
+    ]
 
 
 def get_read_run_search_fields():
-    return ['first_public', 'instrument_model', 'instrument_platform',
-            'sequencing_method']
+    return [
+        "first_public",
+        "instrument_model",
+        "instrument_platform",
+        "sequencing_method",
+    ]
 
 
 def get_analysis_search_fields():
-    return ['first_public', 'sequencing_method']
+    return ["first_public", "sequencing_method"]
 
 
 def create_string_query(field_list):
     """
-       generic function to transform a list of fields to return, separated by ", ", into a field query for ENA API
-       :param field_list: list of accessions to be queried
-       :return a string that can be directly integrated into a curl query.
+    generic function to transform a list of fields to return, separated by ", ", into a field query for ENA API
+    :param field_list: list of accessions to be queried
+    :return a string that can be directly integrated into a curl query.
     """
     if len(field_list) > 1:
         return_string = "%2C".join(field_list)
@@ -87,8 +120,10 @@ def create_sample_search_batch_query(secondary_sample_accs):
     :param secondary_sample_accs: List of secondary sample accessions.
     :type secondary_sample_accs: List of str.
     """
-    return "secondary_sample_accession%3D" + "%20OR%20secondary_sample_accession%3D".join(
-        secondary_sample_accs)
+    return (
+        "secondary_sample_accession%3D"
+        + "%20OR%20secondary_sample_accession%3D".join(secondary_sample_accs)
+    )
 
 
 def create_study_search_batch_query(secondary_study_accession):
@@ -98,7 +133,8 @@ def create_study_search_batch_query(secondary_study_accession):
     :type secondary_study_accession: List of str.
     """
     return "secondary_study_accession%3D" + "%20OR%20secondary_study_accession%3D".join(
-        secondary_study_accession)
+        secondary_study_accession
+    )
 
 
 def perform_api_request(search_query):
@@ -109,13 +145,13 @@ def perform_api_request(search_query):
     :return: response body.
     @:rtype: bytes
     """
-    with open(os.devnull, 'w') as SNULL:
+    with open(os.devnull, "w") as SNULL:
         try:
-            raw_data_from_api = subprocess.check_output(search_query,
-                                                        stderr=SNULL)
+            raw_data_from_api = subprocess.check_output(search_query, stderr=SNULL)
         except:
             logging.error(
-                "Could not get any sample metadata from ENA API. Program will exit now.")
+                "Could not get any sample metadata from ENA API. Program will exit now."
+            )
             raise
     SNULL.close()
 
@@ -139,28 +175,29 @@ def retrieve_metadata(result_type, query, search_fields, user_pass, api_url):
     """
     # transform search fields
     search_fields_str = create_string_query(search_fields)
-    user_pass_chunks = user_pass.split(':')
-    username = user_pass_chunks[0] if len(user_pass_chunks) == 2 else ''
-    password = user_pass_chunks[1] if len(user_pass_chunks) == 2 else ''
+    user_pass_chunks = user_pass.split(":")
+    username = user_pass_chunks[0] if len(user_pass_chunks) == 2 else ""
+    password = user_pass_chunks[1] if len(user_pass_chunks) == 2 else ""
     # create API curl query
-    url = 'https://www.ebi.ac.uk/ena/portal/api/search'
-    headers = {'Accept': 'text/plain',
-               'Content-Type': 'application/x-www-form-urlencoded'}
+    url = "https://www.ebi.ac.uk/ena/portal/api/search"
+    headers = {
+        "Accept": "text/plain",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
     data = {
-        'dataPortal': 'metagenome',
-        'result': result_type,
-        'query': query,
-        'fields': search_fields_str
+        "dataPortal": "metagenome",
+        "result": result_type,
+        "query": query,
+        "fields": search_fields_str,
     }
 
-    r = requests.post(url, headers=headers, data=data,
-                      auth=(username, password))
+    r = requests.post(url, headers=headers, data=data, auth=(username, password))
     response_str = r.text
     if response_str.startswith("Invalid field(s) supplied"):
         raise InvalidFieldSuppliedException(response_str)
     elif response_str.startswith("MismatchedTokenException"):
         raise MismatchedTokenException(response_str)
-    elif 'Username/Password are invalid' in response_str:
+    elif "Username/Password are invalid" in response_str:
         raise InvalidUsernamePasswordException(response_str)
     return response_str
 

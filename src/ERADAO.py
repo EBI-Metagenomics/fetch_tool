@@ -1,4 +1,4 @@
-__author__ = 'scp'
+__author__ = "scp"
 
 """
 Created on 21 Nove 2016
@@ -24,8 +24,10 @@ class ERADAO(object):
         :param run_ids:
         :return:
         """
-        runs = ",".join(['\'' + run + '\'' for run in run_ids])
-        query = "SELECT study_id FROM v_mgp_run_file WHERE run_id IN ({}) GROUP BY study_id".format(runs)
+        runs = ",".join(["'" + run + "'" for run in run_ids])
+        query = "SELECT study_id FROM v_mgp_run_file WHERE run_id IN ({}) GROUP BY study_id".format(
+            runs
+        )
         return self.data_access_object._runQuery(query)
 
     def retrieve_study_accessions_from_analyses(self, analysis_ids):
@@ -34,8 +36,10 @@ class ERADAO(object):
         :param run_ids:
         :return:
         """
-        analyses = ",".join(['\'' + id + '\'' for id in analysis_ids])
-        query = "SELECT study_id FROM v_mgp_assembly_file WHERE analysis_id IN ({}) GROUP BY study_id".format(analyses)
+        analyses = ",".join(["'" + id + "'" for id in analysis_ids])
+        query = "SELECT study_id FROM v_mgp_assembly_file WHERE analysis_id IN ({}) GROUP BY study_id".format(
+            analyses
+        )
         return self.data_access_object._runQuery(query)
 
     def retrieve_submitted_files(self, study_id):
@@ -46,7 +50,8 @@ class ERADAO(object):
         """
 
         query = "SELECT study_id, sample_id, run_id, library_layout, LISTAGG(data_file_path, ';') WITHIN group( order by run_id) as data_file_path, tax_id, library_strategy, library_source, data_file_role, LISTAGG(md5, ';') WITHIN group( order by run_id) as md5 FROM v_mgp_run_file WHERE study_id = '{}' and DATA_FILE_ROLE = 'SUBMISSION_FILE' and (DATA_FILE_FORMAT='FASTA' OR DATA_FILE_FORMAT='FASTQ') and DATA_FILE_PATH not like 'err%' GROUP BY study_id, sample_id, run_id, library_layout, tax_id, library_strategy, library_source, data_file_role".format(
-            study_id)
+            study_id
+        )
         return self.data_access_object._runQuery(query)
 
     def retrieve_generated_files(self, study_id):
@@ -57,7 +62,8 @@ class ERADAO(object):
         """
 
         query = "SELECT study_id, sample_id, run_id, library_layout, LISTAGG(data_file_path, ';') WITHIN group( order by run_id) as data_file_path, tax_id, library_strategy, library_source, data_file_role, LISTAGG(md5, ';') WITHIN group( order by run_id) as md5 FROM v_mgp_run_file WHERE (study_id = '{}' and DATA_FILE_ROLE = 'GENERATED_FILE' and DATA_FILE_FORMAT='FASTQ' and DATA_FILE_PATH not like 'err%') GROUP BY study_id, sample_id, run_id, library_layout, tax_id, library_strategy, library_source, data_file_role".format(
-            study_id)
+            study_id
+        )
         return self.data_access_object._runQuery(query)
 
     def retrieve_assembly_generated_files(self, study_id):
@@ -68,7 +74,8 @@ class ERADAO(object):
         """
 
         query = "SELECT study_id, project_id, sample_id, analysis_id, data_file_format, data_file_role, LISTAGG(data_file_path, ';') WITHIN group( order by analysis_id) as data_file_path, tax_id, LISTAGG(md5, ';') WITHIN group( order by analysis_id) as md5 FROM v_mgp_assembly_file WHERE data_file_format = 'FASTA' and DATA_FILE_ROLE = 'GENERATED_FILE' and study_id = '{}' AND ANALYSIS_STATUS!='supressed' AND ANALYSIS_STATUS!='cancelled' GROUP BY study_id, project_id, sample_id, analysis_id, data_file_format, tax_id, data_file_role ".format(
-            study_id)
+            study_id
+        )
         return self.data_access_object._runQuery(query)
 
     def retrieve_assembly_submitted_files(self, study_id):
@@ -79,9 +86,9 @@ class ERADAO(object):
         """
 
         query = "SELECT study_id, project_id, sample_id, analysis_id, data_file_format, data_file_role, LISTAGG(data_file_path, ';') WITHIN group( order by analysis_id) as data_file_path, tax_id, LISTAGG(md5, ';') WITHIN group( order by analysis_id) as md5 FROM v_mgp_assembly_file WHERE data_file_format = 'FASTA' and DATA_FILE_ROLE = 'SUBMISSION_FILE' and study_id = '{}' AND ANALYSIS_STATUS!='supressed' AND ANALYSIS_STATUS!='cancelled' GROUP BY study_id, project_id, sample_id, analysis_id, data_file_format, tax_id, data_file_role ".format(
-            study_id)
+            study_id
+        )
         return self.data_access_object._runQuery(query)
-
 
     def retrieve_webin_accound_id(self, study_id):
         """
@@ -91,7 +98,8 @@ class ERADAO(object):
         """
 
         query = "SELECT SUBMISSION_ACCOUNT_ID FROM ERA.V_MGP_ASSEMBLY_STUDY WHERE study_id = '{}'".format(
-            study_id)
+            study_id
+        )
         return self.data_access_object._runQuery(query)
 
 

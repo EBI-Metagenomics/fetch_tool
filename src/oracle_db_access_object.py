@@ -1,7 +1,7 @@
 import cx_Oracle
 import logging
 
-__author__ = 'maxim'
+__author__ = "maxim"
 
 """
 Created on 07/12/2015
@@ -41,14 +41,14 @@ class OracleDataAccessObject:
                     try:
                         isinstance(value, str)
                     except UnicodeEncodeError:
-                        value = value.encode('utf-8', 'replace')
+                        value = value.encode("utf-8", "replace")
                     try:
-                        #handle oracle clob datatypes
+                        # handle oracle clob datatypes
                         value = result[col].read()
                     except AttributeError:
                         pass
                     item[key] = value
-                    #item = {cursor.description[col][0]: result[col] for col in range(0, numCols)}
+                    # item = {cursor.description[col][0]: result[col] for col in range(0, numCols)}
                 results.append(item)
                 result = cursor.fetchone()
             cursor.close()
@@ -70,11 +70,12 @@ class OracleDataAccessObject:
                 c.commit()
                 cursor.close()
         except cx_Oracle.DatabaseError as exception:
-            error, = exception
+            (error,) = exception
             logging.error("Oracle error: ", error.message)
         except UnicodeEncodeError as unicodeException:
             error = unicodeException
             logging.error("Encoding error: ", error.message)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     pass
