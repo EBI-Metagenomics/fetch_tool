@@ -1,31 +1,32 @@
 import os
 import pytest
-import shutil
+import sys
+from pathlib import Path
+
 from unittest.mock import patch
 
-from copy import deepcopy
-from src import fetch_assemblies as afa
+from src import fetch_assemblies
 
 FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, 'fixtures'))
 
 
 class TestFetchAssemblies:
     def test_argparse_should_include_additional_args(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
+        fetch = fetch_assemblies.FetchAssemblies(argv=['-p', 'ERP104225'])
 
         args = fetch.args
         accepted_args = {'projects', 'project_list', 'dir', 'verbose', 'force',
-                         'private', 'interactive', 'config_file', 'assemblies', 'assembly_list', 'fix_desc_file',
-                         'ignore_errors'}
+                         'private', 'interactive', 'config_file', 'assemblies', 'assembly_list', 'assembly_type',
+                         'fix_desc_file', 'ignore_errors'}
         assert set(vars(args)) == accepted_args
 
     def test_validate_args_should_raise_exception_as_no_data_specified(self):
         with pytest.raises(ValueError):
-            afa.FetchAssemblies(argv=['-f'])
+            fetch_assemblies.FetchAssemblies(argv=['-f'])
 
     def test_process_additional_args_should_set_assemblies_from_arglist(self):
         assemblies = ['ERZ477685']
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225', '-as'] + assemblies)
+        fetch = fetch_assemblies.FetchAssemblies(argv=['-p', 'ERP104225', '-as'] + assemblies)
         assert fetch.assemblies == assemblies
 
     def test_process_additional_args_args_should_set_assemblies_from_file(self, tmpdir):
@@ -34,37 +35,22 @@ class TestFetchAssemblies:
         assembly_file = os.path.join(tmpdir, 'assemblies.txt')
         with open(assembly_file, 'w') as f:
             f.write('\n'.join(assemblies))
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225', '--assembly-list', assembly_file])
+        fetch = fetch_assemblies.FetchAssemblies(argv=['-p', 'ERP104225', '--assembly-list', assembly_file])
         assert fetch.assemblies == assemblies
 
-    def test_validate_args_should_raise_error_if_fetching_studies_without_project_in_public_mode(self, tmpdir):
-        assemblies = ['ERZ477685']
-        tmpdir = str(tmpdir)
-        runfile = os.path.join(tmpdir, 'assemblies.txt')
-        with open(runfile, 'w') as f:
-            f.write('\n'.join(assemblies))
-
-        with pytest.raises(NotImplementedError):
-            afa.FetchAssemblies(argv=['--assembly-list', runfile])
-
-    def test_get_project_accessions_from_assemblies_should_return_empty(self):
-        assert [] == afa.FetchAssemblies._get_study_assembly_accessions([])
-
-    def test_get_project_accessions_from_assemblies_should_raise_keyerror_on_invalid_project_data(self):
-        with pytest.raises(KeyError):
-            afa.FetchAssemblies._get_study_assembly_accessions([{'PROJECT_ID': 'ERP104225'}])
-
-    def test_get_project_accessions_from_assemblies_should_return_analysis_id(self):
-        assembly_id = 'ERZ477685'
-        assert [assembly_id] == afa.FetchAssemblies._get_study_assembly_accessions([{'ANALYSIS_ID': assembly_id}])
+    def test_process_additional_args_args_should_set_assemblies_from_type(self):
+        mags = ['ERZ1069976']
+        type = 'Metagenome-Assembled Genome (MAG)'
+        fetch = fetch_assemblies.FetchAssemblies(argv=['-p', 'ERP116715', '--assembly-type', type, '-as'] + mags)
+        assert fetch.assemblies == mags
 
     def test_filter_accessions_from_args_should_return_empty(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
+        fetch = fetch_assemblies.FetchAssemblies(argv=['-p', 'ERP104225'])
         fetch.assemblies = 'ERZ477685'
         assert [] == fetch._filter_accessions_from_args([], 'analysis_id')
 
     def test_filter_accessions_from_args_should_return_filtered_assemblies(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
+        fetch = fetch_assemblies.FetchAssemblies(argv=['-p', 'ERP104225'])
         assemblies = ['ERZ477685', 'ERZ477686']
         fetch.assemblies = assemblies
         run_data = [
@@ -74,21 +60,7 @@ class TestFetchAssemblies:
         ]
         assert run_data[0:2] == fetch._filter_accessions_from_args(run_data, 'analysis_id')
 
-    def test_filter_assembly_accessions_should_return_empty(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
-        assert [] == fetch._filter_assembly_accessions([], [])
-
-    def test_filter_assembly_accessions_should_not_return_accession(self):
-        new_acc = 'ERZ477685'
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
-        assert [] == fetch._filter_assembly_accessions([new_acc], ['ERZ477684', new_acc])
-
-    def test_filter_assembly_accessions_should_return_accession(self):
-        new_acc = 'ERZ477685'
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP104225'])
-        assert [new_acc] == fetch._filter_assembly_accessions([new_acc], ['ERZ477684'])
-
-    def test_map_project_info_db_row_should_copy_fields(self):
+    def test_map_project_info_to_row_should_copy_fields(self):
         raw_data = {
             'STUDY_ID': 'ERP104225',
             'SAMPLE_ID': 'ERS599830',
@@ -97,8 +69,8 @@ class TestFetchAssemblies:
             'DATA_FILE_PATH': '/tmp/ERP104225/ERZ477685.fasta.gz',
             'MD5': ('md51',),
         }
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        transform = fetch.map_project_info_db_row(raw_data)
+        fetch = fetch_assemblies.FetchAssemblies(argv=['-p', 'ERP003634'])
+        transform = fetch.map_project_info_to_row(raw_data)
         equivalent_fields = (
             ('STUDY_ID', 'study_id'),
             ('SAMPLE_ID', 'sample_id'),
@@ -106,127 +78,102 @@ class TestFetchAssemblies:
         )
         for f1, f2 in equivalent_fields:
             assert raw_data[f1] == transform[f2]
-
-    def test_map_project_info_db_row_should_generate_file_list(self):
-        raw_data = {
-            'STUDY_ID': 'ERP104225',
-            'SAMPLE_ID': 'ERS599830',
-            'ANALYSIS_ID': 'ERZ477685',
-            'file': 'ERZ477685.fasta.gz',
-            'DATA_FILE_PATH': '/tmp/ERP104225/ERZ477685.fasta.gz',
-            'DATA_FILE_ROLE': 'SUBMITTED',
-            'MD5': ('md51',),
-        }
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        transform = fetch.map_project_info_db_row(raw_data)
         assert transform['file'] == 'ERZ477685.fasta.gz'
 
-    def test_is_trusted_ftp_data_should_be_trusted_from_broker(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        trusted_brokers = ['EMG']
-        assert fetch.is_trusted_ftp_data({'fasta_ftp': '',
-                                          'submitted_ftp': 'filepath',
-                                          'broker_name': 'EMG'},
-                                         trusted_brokers)
+    @staticmethod
+    def mock_get_study_from_assembly(self, *args, **kwargs):
+        return [{'analysis_accession': 'ERZ1505406', 'secondary_study_accession': 'ERP123564'}]
 
-    def test_is_trusted_ftp_data_should_be_trusted_as_generated_data(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        trusted_brokers = ['EMG']
-        assert fetch.is_trusted_ftp_data({'fasta_ftp': 'filepath', 'submitted_ftp': 'filepath', 'broker_name': 'EMG'},
-                                         trusted_brokers)
+    """
+    1. INVALID = incorrect file format
+    2. INVALID = REFERENCE ALIGNMENT should be SEQUENCE ASSEMBLY
+    3. INVALID = no file paths
+    4. VALID
+    """
 
-    def test_filter_ftp_broker_names_should_return_empty(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        assert [] == fetch._filter_ftp_broker_names([])
-
-    def test_filter_ftp_broker_names_should_filter_brokers(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        fetch.config['trustedBrokers'] = ['EMG']
-        run_data = [
-            {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
-            {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
-        ]
-        assert 'EMG' == fetch._filter_ftp_broker_names(run_data)[0]['broker_name']
-
-    def test_filter_ftp_broker_names_should_allow_generated_file(self):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        fetch.config['trustedBrokers'] = ['EMG']
-        run_data = [
-            {'fasta_ftp': '', 'submitted_ftp': 'datafile', 'broker_name': 'EMG'},
-            {'fasta_ftp': 'datafile', 'submitted_ftp': 'datafile', 'broker_name': 'NOT_EMG'},
-        ]
-        assert 1 == len(fetch._filter_ftp_broker_names(run_data))
-
-    def test_map_datafields_ftp_2_db_should_map_all_fields(self):
-        raw_data = {
-            'secondary_study_accession': 'ERP104225',
-            'secondary_sample_accession': 'ERS599830',
-            'analysis_accession': 'ERZ477685',
-            'submitted_ftp': '/tmp/ERP104225/ERZ477685.fasta.gz',
-            'submitted_md5': 'md51'
-        }
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634'])
-        assert fetch.map_datafields_ftp_2_db(deepcopy(raw_data)) == {
-            'STUDY_ID': raw_data['secondary_study_accession'],
-            'SAMPLE_ID': raw_data['secondary_sample_accession'],
-            'ANALYSIS_ID': raw_data['analysis_accession'],
-            'DATA_FILE_PATH': ('/tmp/ERP104225/ERZ477685.fasta.gz',),
-            'MD5': ('md51',),
-            'file': ['ERZ477685.fasta.gz'],
-        }
-
-    def test_retrieve_project_info_ftp_should_fetch_all_assemblies(self, tmpdir):
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP112670', '-d', str(tmpdir)])
-        assemblies = fetch._retrieve_project_info_ftp('ERP112670')
-        assert len(assemblies) == 3
-
+    @staticmethod
     def mock_get_assembly_metadata(self, *args, **kwargs):
         return [
-            {'STUDY_ID': 'ERP104225', 'PROJECT_ID': 'PRJEB22544', 'SAMPLE_ID': 'SRS591962', 'ANALYSIS_ID': 'ERZ477682',
-             'DATA_FILE_FORMAT': 'FASTA', 'DATA_FILE_PATH': 'ERZ477/ERZ477682/SRR1238172.fasta.gz', 'TAX_ID': '410658',
-             'BYTES': 9499, 'MD5': '9d8192b159ac14b80d68e0537f88cb88'},
-            {'STUDY_ID': 'ERP104225', 'PROJECT_ID': 'PRJEB22544', 'SAMPLE_ID': 'SRS591979', 'ANALYSIS_ID': 'ERZ477684',
-             'DATA_FILE_FORMAT': 'FASTA', 'DATA_FILE_PATH': 'ERZ477/ERZ477685/SRR1238384.fasta.gz', 'TAX_ID': '410658',
-             'BYTES': 8149, 'MD5': 'f7355303727b9a4508e66b1e1d06bbb0'}]
+            {'analysis_accession': 'ERZ1505403', 'study_accession': 'PRJEB39980',
+             'analysis_type': 'SEQUENCE_ASSEMBLY', 'center_name': 'EMG', 'first_public': '2020-08-22',
+             'submitted_md5': 'bbf202d0482c7bb359e5afe9157b578d;3b0213d90cc8902e29817d69bad524a8',
+             'submitted_ftp': 'ftp.sra.ebi.ac.uk/vol1/ERZ150/ERZ1505403/ERR1654124.sub.gz;ftp.sra.ebi.ac.uk'
+                              '/vol1/ERZ150/ERZ1505403/ERZ1505403.md5',
+             'generated_md5': 'be8676c333d8d075c32db548273a9707',
+             'generated_ftp': 'ftp.sra.ebi.ac.uk/vol1/sequence/ERZ150/ERZ1505404/contig.txt.gz',
+             'assembly_type': 'primary metagenome', 'secondary_study_accession': 'ERP123564',
+             'secondary_sample_accession': 'ERS1360485'},
+            {'analysis_accession': 'ERZ1505404', 'study_accession': 'PRJEB39980',
+             'analysis_type': 'REFERENCE_ALIGNMENT', 'center_name': 'EMG', 'first_public': '2020-08-22',
+             'submitted_md5': 'bbf202d0482c7bb359e5afe9157b578d;3b0213d90cc8902e29817d69bad524a9',
+             'submitted_ftp': 'ftp.sra.ebi.ac.uk/vol1/ERZ150/ERZ1505404/ERR1654124.fasta.gz;ftp.sra.ebi.ac.uk'
+                              '/vol1/ERZ150/ERZ1505404/ERZ1505404.md5',
+             'generated_md5': 'be8676c333d8d075c32db548273a9708',
+             'generated_ftp': 'ftp.sra.ebi.ac.uk/vol1/sequence/ERZ150/ERZ1505404/contig.fa.gz',
+             'assembly_type': 'primary metagenome', 'secondary_study_accession': 'ERP123564',
+             'secondary_sample_accession': 'ERS1360485'},
+            {'analysis_accession': 'ERZ1505405', 'study_accession': 'PRJEB39980',
+             'analysis_type': 'SEQUENCE_ASSEMBLY', 'center_name': 'EMG', 'first_public': '2020-08-22',
+             'submitted_md5': '99bac814522144e55c30369db7a6bf64;3fb2045485655f1faf735bc0a2919b92',
+             'submitted_ftp': 'ftp.sra.ebi.ac.uk/vol1/ERZ150/ERZ1505405/ERR1654123.fasta.gz;ftp.sra.ebi.ac.uk'
+                              '/vol1/ERZ150/ERZ1505405/ERZ1505405.md5',
+             'generated_md5': '',
+             'generated_ftp': '',
+             'assembly_type': 'primary metagenome', 'secondary_study_accession': 'ERP123564',
+             'secondary_sample_accession': 'ERS1360484'},
+            {'analysis_accession': 'ERZ1505406', 'study_accession': 'PRJEB39980',
+             'analysis_type': 'SEQUENCE_ASSEMBLY', 'center_name': 'EMG', 'first_public': '2020-08-22',
+             'submitted_md5': '589552f30ffa7927c33cd121cab59de1;d63816a798413d5b8c361b87319c9b08',
+             'submitted_ftp': 'ftp.sra.ebi.ac.uk/vol1/ERZ150/ERZ1505406/ERZ1505406.md5;ftp.sra.ebi.ac.uk/'
+                              'vol1/ERZ150/ERZ1505406/ERR1654119.fasta.gz',
+             'generated_md5': 'e0e3c99075ae482083b3e8ca35e401e2',
+             'generated_ftp': 'ftp.sra.ebi.ac.uk/vol1/sequence/ERZ150/ERZ1505406/contig.fa.gz',
+             'assembly_type': 'primary metagenome', 'secondary_study_accession': 'ERP123564',
+             'secondary_sample_accession': 'ERS1360480'}
+        ]
 
-    def mock_get_study_wgs_analyses(self, *args, **kwargs):
-        return [{'PROJECT_ACC': 'PRJEB22544', 'SAMPLE_ID': 'SRS591976', 'ASSEMBLY_ID': 'ERZ477684', 'WGS_ACC': 'OEEN01',
-                 'GC_ID': 'GCA_900216895', 'CONTIG_CNT': 220},
-                {'PROJECT_ACC': 'PRJEB22544', 'SAMPLE_ID': 'SRS591962', 'ASSEMBLY_ID': 'ERZ477682', 'WGS_ACC': 'OEEM01',
-                 'GC_ID': 'GCA_900216875', 'CONTIG_CNT': 223}]
-
-    @patch('src.fetch_assemblies.FetchAssemblies._get_assembly_metadata')
-    @patch('src.fetch_assemblies.FetchAssemblies._get_study_wgs_analyses')
-    @patch('src.fetch_assemblies.FetchAssemblies._get_studies_brokers')
-    @patch('src.fetch_assemblies.FetchAssemblies._study_has_permitted_broker')
-    def test_retrieve_project_info_db_should_merge_data_sources(self, mocked_class1, mocked_class2, mocked_class3,
-                                                                    mocked_class_4, tmpdir):
-        afa.FetchAssemblies._get_assembly_metadata = self.mock_get_assembly_metadata
-        afa.FetchAssemblies._get_study_wgs_analyses = self.mock_get_study_wgs_analyses
-        afa.FetchAssemblies._study_has_permitted_broker = lambda *args, **kwargs: False
-        afa.FetchAssemblies._get_studies_brokers = lambda *args, **kwargs: {'ERP003634': ''}
-        fetch = afa.FetchAssemblies(argv=['-p', 'ERP003634', '-d', str(tmpdir), '--private'])
-        assemblies = fetch._retrieve_project_info_db('ERP003634')
-        assert len(assemblies) == 2
-
-    @patch('src.fetch_assemblies.ERADAO.retrieve_study_accessions_from_analyses')
-    @patch('src.fetch_assemblies.FetchAssemblies._get_assembly_metadata')
-    @patch('src.fetch_assemblies.FetchAssemblies._get_study_wgs_analyses')
-    @patch('src.fetch_assemblies.FetchAssemblies._get_studies_brokers')
-    def test_process_additional_args_should_find_study_accessions_for_assemblies(self, mocked_class1, mocked_class2,
-                                                                                 mocked_class3, mocked_class4, tmpdir):
-        study_accession = 'ERP104225'
-        analysis_id = 'ERZ477684'
-        afa.ERADAO.retrieve_study_accessions_from_analyses = lambda *args, **kwargs: [{'STUDY_ID': study_accession}]
-        afa.FetchAssemblies._get_assembly_metadata = self.mock_get_assembly_metadata
-        afa.FetchAssemblies._get_study_wgs_analyses = self.mock_get_study_wgs_analyses
-        afa.FetchAssemblies._study_has_permitted_broker = lambda *args, **kwargs: True
-        afa.FetchAssemblies._get_studies_brokers = lambda *args, **kwargs: {'ERP003634': ''}
-        fetch = afa.FetchAssemblies(argv=['-as', analysis_id, '-d', str(tmpdir), '--private'])
+    @patch('src.fetch_assemblies.FetchAssemblies._retrieve_ena_url')
+    def test_process_additional_args_should_find_study_accessions_for_assemblies(self, mocked_class1, tmpdir):
+        study_accession = 'ERP123564'
+        analysis_id = 'ERZ1505406'
+        fetch_assemblies.FetchAssemblies._retrieve_ena_url = self.mock_get_study_from_assembly
+        fetch = fetch_assemblies.FetchAssemblies(argv=['-as', analysis_id, '-d', str(tmpdir)])
+        fetch._validate_args()
         fetch._process_additional_args()
-        assert fetch.assemblies == [analysis_id]
-        assert fetch.args.projects == [study_accession]
+        assert fetch.args.projects == {study_accession}
 
-    def test_process_additional_args_should_raise_exception_if_no_private_flag(self, tmpdir):
-        with pytest.raises(NotImplementedError):
-            afa.FetchAssemblies(argv=['-as', 'ERZ477684', '-d', str(tmpdir)])
+    @patch('src.fetch_assemblies.FetchAssemblies._retrieve_ena_url')
+    def test_retrieve_project_should_return_only_valid_assemblies_and_check_md5(self, mocked_class1, tmpdir):
+        study_accession = 'ERP123564'
+        valid_assembly_file = 'ERZ1505406.fasta.gz'
+        valid_assembly_md5 = 'e0e3c99075ae482083b3e8ca35e401e2'
+        download_files = ['download', 'download.lock', 'ERP123564.txt', 'ERP123564.txt.lock']
+        fetch_assemblies.FetchAssemblies._retrieve_ena_url = self.mock_get_assembly_metadata
+        fetch_assemblies.FetchAssemblies.download_lftp = True
+        fetch = fetch_assemblies.FetchAssemblies(argv=['-p', study_accession, '-d', str(tmpdir), '--private'])
+        assemblies = fetch._retrieve_project_info_from_api(study_accession)
+        for x in assemblies:
+            for file in x['file']:
+                assembly_path = tmpdir / file
+                Path(str(assembly_path)).touch()
+        assert len(assemblies) == 1
+        assert os.listdir(str(tmpdir)) == [valid_assembly_file]
+        assert not fetch._is_file_valid(str(assembly_path), valid_assembly_md5)
+        project_dir = tmpdir / study_accession
+        os.mkdir(str(project_dir))
+        os.chdir(str(tmpdir))
+        fetch.write_project_files(study_accession, assemblies)
+        assert [os.path.exists(str(project_dir / x)) for x in download_files]
+        with open(str(project_dir / 'download')) as f:
+            download_data = f.readlines()
+            assert len(download_data) == 1
+        with open(str(project_dir / 'ERP123564.txt')) as t:
+            txt_data = t.readlines()
+            assert len(txt_data) == 2
+
+    @patch.object(fetch_assemblies.FetchAssemblies, 'fetch')
+    def test_main_should_call_fetch(self, mock):
+        test_args = ['scriptname', '-p', 'ERP123564']
+        with patch.object(sys, 'argv', test_args):
+            fetch_assemblies.main()
+        assert mock.called
