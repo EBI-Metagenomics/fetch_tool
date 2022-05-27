@@ -2,3 +2,4 @@ requests==2.27.1
 sh~=1.12.14
 filelock~=3.0.10
 pandas==1.4.2
+cx_Oracle~=6.1.0
