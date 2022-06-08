@@ -1,3 +1,5 @@
+[![Testing](https://github.com/EBI-Metagenomics/fetch_tool/actions/workflows/test.yml/badge.svg)](https://github.com/EBI-Metagenomics/fetch_tool/actions/workflows/test.yml)
+
 # Microbiome Informatics ENA fetch tool
 
 Set of tools which allows you to fetch RAW read and assembly files from the European Nucleotide Archive (ENA).
