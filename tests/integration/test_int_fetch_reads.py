@@ -14,7 +14,6 @@ root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 
 def call_cmd(cmd):
     # FIXME: this pythonpath hack is _very_ ugly
-    print(f"PYTHONPATH={root_path}:$PYTHONPATH {cmd}")
     ret = subprocess.call(
         f"PYTHONPATH={root_path}:$PYTHONPATH {cmd}", stdout=subprocess.PIPE, shell=True
     )
@@ -144,7 +143,7 @@ def validate_single_study_run(tmpdir):
 class TestFetchCompleteStudyReads:
     def test_fetch_all_study_data(self, tmpdir):
         with WorkingDir(tmpdir):
-            call_cmd("fetch_reads -p {} -v -v -d {}".format(study_id, str(tmpdir)))
+            call_cmd("fetch_reads.py -p {} -v -v -d {}".format(study_id, str(tmpdir)))
             validate_full_study(tmpdir)
 
     def test_fetch_single_run(self, tmpdir):

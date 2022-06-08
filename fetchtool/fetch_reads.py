@@ -109,6 +109,8 @@ class FetchReads(AbstractDataFetcher):
             False if len(self.projects) > 1 else True
         )  # allows script to continue to next project if one fails
 
+        used_api = "ENA Portal API"
+
         data = None
         fetch_204_ex = None
         try:
@@ -117,13 +119,13 @@ class FetchReads(AbstractDataFetcher):
                 raise_on_204=raise_error,
             )
         except ENAFetch204 as ex:
-            logging.info(
+            logging.error(
                 "The data portal API returned a 204, trying the filereport API"
             )
             fetch_204_ex = ex
 
         # Alternative endpoint, the filereport which is the used on the ENA website
-        if fetch_204_ex is None:
+        if fetch_204_ex:
             file_report_url = (
                 self.ENA_FILEREPORT_URL
                 + "?"
@@ -136,6 +138,7 @@ class FetchReads(AbstractDataFetcher):
                 )
             )
             data = self._retrieve_ena_url(file_report_url)
+            used_api = "ENA FileReport API"
             if not data:
                 logging.error(
                     f"It was not possible to fetch data from the Portal API or the Filereport API for project {project_accession}"
@@ -149,10 +152,7 @@ class FetchReads(AbstractDataFetcher):
             return
 
         logging.info(
-            "Retrieved {count} runs for study {project_accession} from "
-            "the ENA Portal API.".format(
-                count=len(data), project_accession=project_accession
-            )
+            f"Retrieved {len(data)} runs for study {project_accession} from the {used_api}"
         )
         mapped_data = []
         for d in data:
