@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9]
+        python-version: [3.7, 3.8, 3.9]
 
     steps:
       - uses: actions/checkout@v2
@@ -21,10 +21,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install -U -r requirements-test.txt
           pip install -r requirements-test.txt
-          python setup.py sdist
       - name: 🧪 - Testing
         run: |
-          pytest -s -vv tests/unit/
-          pytest -s -vv tests/integration/
+          pytest -v

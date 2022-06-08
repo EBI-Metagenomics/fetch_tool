@@ -1,22 +1,42 @@
-import hashlib
-from abc import ABC, abstractmethod
-import json
-import os
-import logging
-import sys
-import argparse
-import re
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
+# Copyright 2018-2022 EMBL - European Bioinformatics Institute
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import argparse
 import copy
-from filelock import UnixFileLock
-from pandas.errors import EmptyDataError
+import ftplib
+import hashlib
+import json
+import logging
+import os
+import re
+import sys
+from abc import ABC, abstractmethod
+from subprocess import call
+
 import pandas as pd
 import requests
-import ftplib
-from subprocess import call
-from src.exceptions import ENAFetch204, ENAFetch401, ENAFetchFail
+from filelock import UnixFileLock
+from pandas.errors import EmptyDataError
+
+from fetchtool.exceptions import ENAFetch204, ENAFetch401, ENAFetchFail
 
 CONFIG_FILE = os.getenv("FETCH_TOOL_CONFIG", None)
+
+PRIVATE_ENA_FTP = "ftp.dcc-private.ebi.ac.uk"
+PUBLIC_ENA_FTP = "ftp.ebi.ac.uk"
 
 
 class AbstractDataFetcher(ABC):
@@ -448,8 +468,8 @@ class AbstractDataFetcher(ABC):
 
     @staticmethod
     def load_oracle_connection(user, password, host, port, instance):
-        from src.oracle_db_access_object import OracleDataAccessObject
-        from src.oracle_db_connection import OracleDBConnection
+        from fetchtool.oracle_db_access_object import OracleDataAccessObject
+        from fetchtool.oracle_db_connection import OracleDBConnection
 
         return OracleDataAccessObject(
             OracleDBConnection(user, password, host, port, instance)
@@ -460,11 +480,12 @@ class AbstractDataFetcher(ABC):
         raise_on_204: raise ENAFetch204 if the response status code i 204
         """
         attempt = 0
+        request_params = {"url": url}
+        if self.private_mode:
+            request_params["auth"] = (self.ENA_API_USER, self.ENA_API_PASSWORD)
         while attempt <= self.config["url_max_attempts"]:
             try:
-                response = requests.get(
-                    url, auth=(self.ENA_API_USER, self.ENA_API_PASSWORD)
-                )
+                response = requests.get(**request_params)
                 if response.status_code == 200:
                     return response.json()
                 if response.status_code == 204:
@@ -556,14 +577,14 @@ class AbstractDataFetcher(ABC):
                         sys.exit(1)
 
     def download_lftp(self, dest, url):
+        """Download from ENA FTP server.
+        Usage example, to get file path and names from full FTP URL
+        - url = ftp.sra.ebi.ac.uk/vol1/sequence/ERZ166/ERZ1669403/contig.fa.gz
+        - path list = ['vol1', 'sequence', 'ERZ166', 'ERZ1669403']
+        - path = vol1/sequence/ERZ166/ERZ1669403
+        - filename = contig.fasta.gz
         """
-            e.g. to get file path and names from full FTP URL
-        url = ftp.sra.ebi.ac.uk/vol1/sequence/ERZ166/ERZ1669403/contig.fa.gz
-        path list = ['vol1', 'sequence', 'ERZ166', 'ERZ1669403']
-        path = vol1/sequence/ERZ166/ERZ1669403
-        filename = contig.fasta.gz
-        """
-        server = "ftp.dcc-private.ebi.ac.uk"
+        server = PRIVATE_ENA_FTP if self.private_mode else PUBLIC_ENA_FTP
         path_list = url.split("ebi.ac.uk/")[-1].split("/")[:-1]
         path = "/".join(path_list)
         file_name = os.path.basename(url)
@@ -572,8 +593,12 @@ class AbstractDataFetcher(ABC):
             try:
                 with ftplib.FTP(server, timeout=300) as ftp:
                     logging.info("Downloading file from FTP server..." + url)
-                    logging.info("Logging in...")
-                    ftp.login(self.ENA_API_USER, self.ENA_API_PASSWORD)
+                    if self.private_mode:
+                        logging.info("Logging in...")
+                        ftp.login(self.ENA_API_USER, self.ENA_API_PASSWORD)
+                    else:
+                        logging.info("Logging as anonymous")
+                        ftp.login()
                     ftp.cwd(path)
                     logging.info("Getting the file...")
                     # store with the same name

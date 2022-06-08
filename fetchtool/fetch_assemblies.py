@@ -1,13 +1,13 @@
-import re
-import logging
-import os
+#!/usr/bin/env python
 import gzip
 import json
+import logging
+import os
+import re
 
-from src.ENADAO import ENADAO
-
-from src.abstract_fetch import AbstractDataFetcher
-from src.exceptions import NoDataError
+from fetchtool.abstract_fetch import AbstractDataFetcher
+from fetchtool.ENADAO import ENADAO
+from fetchtool.exceptions import ENAFetch204, NoDataError
 
 path_re = re.compile(r"(.*)/(.*)")
 
@@ -79,6 +79,8 @@ class FetchAssemblies(AbstractDataFetcher):
         + "&"
         + ENA_PORTAL_RUN_QUERY
     )
+
+    ENA_FILEREPORT_URL = "https://www.ebi.ac.uk/ena/portal/api/filereport"
 
     # not in use
     ENA_WGS_SET_API_URL = (
@@ -152,12 +154,46 @@ class FetchAssemblies(AbstractDataFetcher):
         raise_error = (
             False if len(self.projects) > 1 else True
         )  # allows script to continue to next project if one fails
-        data = self._retrieve_ena_url(
-            self.ENA_PORTAL_API_URL.format(project_accession, self.assembly_type),
-            raise_on_204=raise_error,
-        )
+
+        data = None
+        fetch_204_ex = None
+        try:
+            data = self._retrieve_ena_url(
+                self.ENA_PORTAL_API_URL.format(project_accession, self.assembly_type),
+                raise_on_204=raise_error,
+            )
+        except ENAFetch204 as ex:
+            logging.info(
+                "The data portal API returned a 204, trying the filereport API"
+            )
+            fetch_204_ex = ex
+
+        # Alternative endpoint, the filereport which is the used on the ENA website
+        if fetch_204_ex:
+            file_report_url = (
+                self.ENA_FILEREPORT_URL
+                + "?"
+                + "&".join(
+                    [
+                        "&".join(self.ENA_PORTAL_PARAMS)
+                        + ",".join(self.ENA_PORTAL_FIELDS),
+                        f"accession={project_accession}",
+                    ]
+                )
+            )
+            data = self._retrieve_ena_url(file_report_url)
+            if not data:
+                logging.error(
+                    f"It was not possible to fetch data from the Portal API or the Filereport API for project {project_accession}"
+                )
+                return
+
         if not data:
+            logging.error(
+                f"It was not possible to fetch data from the Portal API for project {project_accession}"
+            )
             return
+
         logging.info(
             "Retrieved {count} assemblies for study {project_accession} from "
             "the ENA Portal API.".format(

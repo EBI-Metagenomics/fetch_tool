@@ -1,11 +1,11 @@
 import os
-import pytest
 import sys
 from pathlib import Path
-
 from unittest.mock import patch
 
-from src import fetch_reads
+import pytest
+
+from fetchtool import fetch_reads
 
 FIXTURES_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), os.pardir, "fixtures")
@@ -163,7 +163,7 @@ class TestFetchReads:
             },
         ]
 
-    @patch("src.fetch_reads.FetchReads._retrieve_ena_url")
+    @patch("fetchtool.fetch_reads.FetchReads._retrieve_ena_url")
     def test_process_additional_args_should_find_study_accessions_for_runs(
         self, mocked_class1, tmpdir
     ):
@@ -175,7 +175,7 @@ class TestFetchReads:
         fetch._process_additional_args()
         assert fetch.args.projects == {study_accession}
 
-    @patch("src.fetch_reads.FetchReads._retrieve_ena_url")
+    @patch("fetchtool.fetch_reads.FetchReads._retrieve_ena_url")
     def test_retrieve_project_should_return_only_valid_reads_and_check_md5(
         self, mocked_class1, tmpdir
     ):
