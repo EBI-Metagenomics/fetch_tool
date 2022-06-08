@@ -4,7 +4,7 @@ import os
 import re
 
 from fetchtool.abstract_fetch import AbstractDataFetcher
-from fetchtool.exceptions import NoDataError
+from fetchtool.exceptions import ENAFetch204, NoDataError
 
 path_re = re.compile(r"(.*)/(.*)")
 
