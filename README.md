@@ -66,6 +66,20 @@ Install from private Git repo with access token (access token can be found in ce
 $ pip install -U git+https://{access_token}@github.com/EBI-Metagenomics/fetch_tool@master
 ```
 
+### Install Aspera
+
+Taken from: http://docs.transfer.sdo.ebi.ac.uk/protocols/aspera/#endpoints
+
+## Install
+
+Run the `install-aspera.sh` command here, it has only one optional parameter (the installtion folder).
+
+```bash
+./install path/to/installation-i-want
+```
+
+Otherwise it will install it in $PWD/aspera-cli
+
 ## Fetch read files (amplicon and WGS data)
 
 ### Usage

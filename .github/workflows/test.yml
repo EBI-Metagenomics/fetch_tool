@@ -3,7 +3,7 @@ name: Testing
 on: [push, pull_request]
 
 env:
-  FETCH_TOOL_CONFIG: ${{ github.workspace }}/config/fetchdata-config-default.json
+  FETCH_TOOL_CONFIG: ${{ github.workspace }}/config/testing.json
 
 jobs:
   build:
@@ -22,6 +22,8 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install -r requirements-test.txt
+          # Aspera installation #
+          . install-aspera.sh
       - name: 🧪 - Testing
         run: |
           pytest -v

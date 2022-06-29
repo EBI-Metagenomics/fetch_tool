@@ -1,5 +1,19 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+# Copyright 2018-2022 EMBL - European Bioinformatics Institute
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 import logging
 import os
@@ -160,20 +174,7 @@ def perform_api_request(search_query):
 
 
 def retrieve_metadata(result_type, query, search_fields, user_pass, api_url):
-    """
-
-    :param result_type: Check for valid result types ENA's api documentation. Valid values are for instance samples, read_run or analysis
-    :param query: Search query, that could be multiple accessions or single accessions.
-    :param api_url:
-    :param user_pass:
-    :param search_fields:
-    :type result_type: str
-    :type query: str
-    :type search_fields: list
-    :type api_url: str
-    :type user_pass: str
-    :return:
-    """
+    """Check for valid result types ENA's api documentation. Valid values are for instance samples, read_run or analysis"""
     # transform search fields
     search_fields_str = create_string_query(search_fields)
     user_pass_chunks = user_pass.split(":")
