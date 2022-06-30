@@ -123,7 +123,6 @@ class FetchAssemblies(AbstractDataFetcher):
             help="Assembly type",
             choices=[
                 "primary metagenome",
-                "Metagenome-Assembled Genome (MAG)",
                 "binned metagenome",
                 "metatranscriptome",
             ],
