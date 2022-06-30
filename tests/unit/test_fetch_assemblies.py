@@ -74,6 +74,7 @@ class TestFetchAssemblies:
         )
         assert fetch.assemblies == assemblies
 
+    @pytest.mark.skip("MAGs download is broken ATM, we are working to fix it")
     def test_process_additional_args_args_should_set_assemblies_from_type(self):
         mags = ["ERZ1069976"]
         type = "Metagenome-Assembled Genome (MAG)"
