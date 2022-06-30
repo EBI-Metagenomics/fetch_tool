@@ -12,7 +12,7 @@ fi
 curl https://download.asperasoft.com/download/sw/cli/$VERSION/$FILE.sh -o $FILE.sh
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    LANG=C sed -e -i.bk "s@INSTALL_DIR=\"\$HOME\/Applications\"@INSTALL_DIR=$INSTALL_DIR@" $FILE.sh
+    LANG=C sed -i.bk -e "s@INSTALL_DIR=\"\$HOME\/Applications\"@INSTALL_DIR=$INSTALL_DIR@" $FILE.sh
 else
     sed -i.bk "s@INSTALL_DIR=\~\/.aspera@INSTALL_DIR=$INSTALL_DIR@" $FILE.sh
 fi
