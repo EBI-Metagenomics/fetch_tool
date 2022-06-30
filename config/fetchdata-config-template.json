@@ -1,12 +1,7 @@
 {
-  "ena_host": "",
-  "ena_port": "1531",
-  "ena_instance": "ENAPRO",
-  "ena_user": "",
-  "ena_password": "",
   "url_max_attempts": 5,
   "ena_api_username": "",
   "ena_api_password": "",
-  "aspera_bin": "/home/mbc/.aspera/cli/bin/ascp",
-  "aspera_cert": "/home/mbc/.aspera/cli/etc/asperaweb_id_dsa.openssh"
+  "aspera_bin": "",
+  "aspera_cert": ""
 }

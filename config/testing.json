@@ -1,9 +1,4 @@
 {
-  "ena_host": "",
-  "ena_port": "1531",
-  "ena_instance": "ENAPRO",
-  "ena_user": "",
-  "ena_password": "",
   "url_max_attempts": 5,
   "ena_api_username": "",
   "ena_api_password": "",

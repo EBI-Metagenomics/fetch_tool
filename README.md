@@ -54,6 +54,7 @@ Install from requirements file
 ```bash
 $ git clone git@github.com:EBI-Metagenomics/fetch_tool.git
 $ pip install -r requirements.txt
+$ pip install -U fetch_tool/
 ```
 
 Install from Git repo
@@ -67,6 +68,18 @@ Install from private Git repo with access token (access token can be found in ce
 ```bash
 $ pip install -U git+https://{access_token}@github.com/EBI-Metagenomics/fetch_tool@master
 ```
+
+#### Configuration file
+
+Setup the configuration file, the template [config/fetchdata-config-template.json](fetchdata-config-template.json) for the configuration file.
+
+The required fields are:
+- For Aspera
+  - aspera_bin (the path to ascp, usually in the aspera installation under /cli/bin)
+  - aspera_cert (the path to the ascp provided cert, usually in the aspera installation under /cli/etc/asperaweb_id_dsa.openssh)
+- To pull private ENA data
+  - ena_api_user
+  - ena_api_password
 
 ### Install Aspera
 

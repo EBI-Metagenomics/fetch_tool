@@ -106,7 +106,6 @@ class FetchAssemblies(AbstractDataFetcher):
         self.ACCESSION_FIELD = "ANALYSIS_ID"
         self.assemblies = None
         super().__init__(argv)
-        self.init_ena_dao()
 
     @staticmethod
     def add_arguments(parser):

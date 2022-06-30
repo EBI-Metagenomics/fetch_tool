@@ -90,20 +90,6 @@ class AbstractDataFetcher(ABC):
             self.projects = self._get_project_accessions(self.args)
             self.sanity_check_project_accessions()
 
-        if self.args.private:
-            self.init_ena_dao()
-        else:
-            self.enadao = None
-
-    def init_ena_dao(self):
-        self.enadao = self.load_oracle_connection(
-            self.config["ena_user"],
-            self.config["ena_password"],
-            self.config["ena_host"],
-            self.config["ena_port"],
-            self.config["ena_instance"],
-        )
-
     @abstractmethod
     def _validate_args(self):
         pass
@@ -473,15 +459,6 @@ class AbstractDataFetcher(ABC):
             return [
                 run_id + "_" + str(i + 1) + filetype for i, _ in enumerate(file_names)
             ]
-
-    @staticmethod
-    def load_oracle_connection(user, password, host, port, instance):
-        from fetchtool.oracle_db_access_object import OracleDataAccessObject
-        from fetchtool.oracle_db_connection import OracleDBConnection
-
-        return OracleDataAccessObject(
-            OracleDBConnection(user, password, host, port, instance)
-        )
 
     def _retrieve_ena_url(self, url, raise_on_204=True):
         """Request json from ENA
