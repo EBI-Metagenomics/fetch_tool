@@ -33,6 +33,8 @@ pre-commit will run a set of pre-configured tools before allowing you to commit 
 
 This repo uses [pytest](https://docs.pytest.org).
 
+It requires the aspera cli installed in the default location (`install-aspera.sh` with no parameters).
+
 To run the test suite:
 ```bash
 pytest
@@ -52,6 +54,7 @@ Install from requirements file
 ```bash
 $ git clone git@github.com:EBI-Metagenomics/fetch_tool.git
 $ pip install -r requirements.txt
+$ pip install -U fetch_tool/
 ```
 
 Install from Git repo
@@ -65,6 +68,32 @@ Install from private Git repo with access token (access token can be found in ce
 ```bash
 $ pip install -U git+https://{access_token}@github.com/EBI-Metagenomics/fetch_tool@master
 ```
+
+#### Configuration file
+
+Setup the configuration file, the template [config/fetchdata-config-template.json](fetchdata-config-template.json) for the configuration file.
+
+The required fields are:
+- For Aspera
+  - aspera_bin (the path to ascp, usually in the aspera installation under /cli/bin)
+  - aspera_cert (the path to the ascp provided cert, usually in the aspera installation under /cli/etc/asperaweb_id_dsa.openssh)
+- To pull private ENA data
+  - ena_api_user
+  - ena_api_password
+
+### Install Aspera
+
+Taken from: http://docs.transfer.sdo.ebi.ac.uk/protocols/aspera/#endpoints
+
+## Install
+
+Run the `install-aspera.sh` command here, it has only one optional parameter (the installation folder).
+
+```bash
+./install path/to/installation-i-want
+```
+
+Otherwise it will install it in $PWD/aspera-cli
 
 ## Fetch read files (amplicon and WGS data)
 
