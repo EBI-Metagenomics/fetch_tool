@@ -645,10 +645,6 @@ class AbstractDataFetcher(ABC):
         aspera_user_host = (
             f"{ASPERA_ENA_PUBLIC_USER}@{ASPERA_SERVER}:{path}/{file_name}"
         )
-        if self.private_mode:
-            os.environ.setdefault("ASPERA_SCP_PASS", self.ENA_API_PASSWORD)
-            aspera_user_host = f"{self.ENA_API_USER}@{ASPERA_SERVER}:{path}/{file_name}"
-
         ascp_command = [
             ASPERA_BIN,
             "-l",
@@ -657,13 +653,20 @@ class AbstractDataFetcher(ABC):
             str(ASPERA_PORT),
             "-i",
             ASPERA_CERT,
-            aspera_user_host,
-            dest,
         ]
+        if self.private_mode:
+            # For private ones we need to remove the certificate
+            os.environ["ASPERA_SCP_PASS"] = self.ENA_API_PASSWORD
+            aspera_user_host = f"{self.ENA_API_USER}@{ASPERA_SERVER}:{path}/{file_name}"
+            del ascp_command[-2:]
+
+        ascp_command.extend([aspera_user_host, dest])
+
         # only for debug logging level
         if logging.DEBUG >= logging.root.level:
             # "-L-", # print logging info, useful in case it fails
-            ascp_command.insert(5, "-L-")
+            index = 5 if self.private_mode else 3
+            ascp_command.insert(index, "-L-")
 
         try:
             logging.info("Downloading with Aspera")
