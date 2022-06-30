@@ -107,6 +107,7 @@ def validate_full_study(tmpdir):
         assert os.path.getsize(f_path) > 0
 
 
+@pytest.mark.flaky
 class TestFetchCompleteStudyAssemblies:
     @patch("fetchtool.abstract_fetch.subprocess.run")
     def test_fetch_all_study_data(self, run_mock, tmpdir):
@@ -130,7 +131,6 @@ class TestFetchCompleteStudyAssemblies:
 
         lftp_mock.side_effect = raise_ex
         wget_mock.side_effect = raise_ex
-        # aspera_mock.side_effect = raise_ex
         with WorkingDir(tmpdir):
             fassemblies = fetch_assemblies.FetchAssemblies(
                 ["-p", study_id, "-d", str(tmpdir)]

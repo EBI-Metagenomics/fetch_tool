@@ -21,7 +21,7 @@ import os
 def pytest_generate_tests(metafunc):
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     os.environ["FETCH_TOOL_CONFIG"] = os.path.join(root, "config/testing.json")
-    # Follow the instructions on the aspera README file
+    # Follow the instructions on the README file to install it
     os.environ.setdefault("ASPERA_BIN", f"{root}/aspera-cli/cli/bin/ascp")
     os.environ.setdefault(
         "ASPERA_CERT", f"{root}/aspera-cli/cli/etc/asperaweb_id_dsa.openssh"

@@ -33,6 +33,8 @@ pre-commit will run a set of pre-configured tools before allowing you to commit 
 
 This repo uses [pytest](https://docs.pytest.org).
 
+It requires the aspera cli installed in the default location (`install-aspera.sh` with no parameters).
+
 To run the test suite:
 ```bash
 pytest
@@ -72,7 +74,7 @@ Taken from: http://docs.transfer.sdo.ebi.ac.uk/protocols/aspera/#endpoints
 
 ## Install
 
-Run the `install-aspera.sh` command here, it has only one optional parameter (the installtion folder).
+Run the `install-aspera.sh` command here, it has only one optional parameter (the installation folder).
 
 ```bash
 ./install path/to/installation-i-want

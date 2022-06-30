@@ -29,6 +29,7 @@ FIXTURES_DIR = os.path.abspath(
 )
 
 
+@pytest.mark.flaky
 class TestFetchAssemblies:
     def test_argparse_should_include_additional_args(self):
         fetch = fetch_assemblies.FetchAssemblies(argv=["-p", "ERP104225"])

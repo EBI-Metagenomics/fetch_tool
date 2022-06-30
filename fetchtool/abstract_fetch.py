@@ -549,7 +549,7 @@ class AbstractDataFetcher(ABC):
                     dest,
                     url,
                 ]
-                result = subprocess.call(download_command)
+                retcode = subprocess.call(download_command)
                 if retcode:
                     logging.error("Error downloading the file from " + url)
                 else:
@@ -628,7 +628,7 @@ class AbstractDataFetcher(ABC):
         """
         ASPERA_SERVER = self.config.get("aspera_server", "fasp.ebi.ac.uk")
         ASPERA_BIN = os.environ.get("ASPERA_BIN") or self.config.get("aspera_bin")
-        # The cert is neeed by the aspera cli tool (asperaweb_id_dsa.openssh) - which usually is in <installation>/cli/etc/"
+        # The cert is needed by the aspera cli tool (asperaweb_id_dsa.openssh) - which usually is in <installation>/cli/etc/"
         ASPERA_CERT = os.environ.get("ASPERA_CERT") or self.config.get("aspera_cert")
         if ASPERA_BIN is None or ASPERA_CERT is None:
             logging.error(
@@ -680,37 +680,6 @@ class AbstractDataFetcher(ABC):
 
         return True
 
-    # no need to detect public or private anymore. Using same ftp. How do we find statuses..suppressed etc?
-    def evaluate_statues(self, status_ids):
-        logging.info("Evaluating assembly statuses...")
-        if len(status_ids) != 1:
-            logging.warning(
-                "Detected different statuses {statuses} "
-                "(e.g. private and public) within the same study.".format(
-                    statuses=status_ids
-                )
-            )
-            logging.warning("Cannot handle this at the moment. Program will exit now!")
-            sys.exit(1)
-        status_id = status_ids.pop()
-        # 2 = private and 4 = public and 7 == temp suppressd
-        if status_id == 2:
-            return 0
-        elif status_id == 4:
-            return 1
-        elif status_id == 7:
-            logging.warning("Study assemblies are temporarily suppressed!")
-            logging.warning(self.PROGRAM_EXIT_MSG)
-            sys.exit(1)
-        else:
-            logging.warning(
-                "Unsupported analysis status id found: {status_id}".format(
-                    status_id=status_id
-                )
-            )
-            logging.warning(self.PROGRAM_EXIT_MSG)
-            sys.exit(1)
-
     @staticmethod
     def get_md5_file(filename):
         return filename + ".md5"
@@ -759,9 +728,9 @@ class AbstractDataFetcher(ABC):
 def silentremove(filename):
     try:
         os.remove(filename)
-    except OSError as e:  # this would be "except OSError, e:" before Python 2.6
-        if type(e) != FileNotFoundError:  # errno.ENOENT = no such file or directory
-            raise  # re-raise exception if a different error occurred
+    except OSError as e:
+        if type(e) != FileNotFoundError:
+            raise
 
 
 def md5(fname):

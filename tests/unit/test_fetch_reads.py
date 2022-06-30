@@ -28,6 +28,7 @@ FIXTURES_DIR = os.path.abspath(
 )
 
 
+@pytest.mark.flaky
 class TestFetchReads:
     def test_argparse_should_include_additional_args(self):
         fetch = fetch_reads.FetchReads(argv=["-p", "ERP001736"])
