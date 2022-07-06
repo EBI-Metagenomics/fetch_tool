@@ -17,22 +17,16 @@
 import csv
 import os
 import subprocess
+import sys
+from unittest.mock import patch
 
 import pytest
+
+from fetchtool import fetch_assemblies
 
 FIXTURES_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), os.pardir, "fixtures")
 )
-
-root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-
-
-def call_cmd(cmd):
-    # FIXME: this pythonpath hack is _very_ ugly
-    ret = subprocess.call(
-        f"PYTHONPATH={root_path}:$PYTHONPATH {cmd}", stdout=subprocess.PIPE, shell=True
-    )
-    assert ret == 0
 
 
 class WorkingDir:
@@ -113,10 +107,33 @@ def validate_full_study(tmpdir):
         assert os.path.getsize(f_path) > 0
 
 
+@pytest.mark.flaky
 class TestFetchCompleteStudyAssemblies:
-    def test_fetch_all_study_data(self, tmpdir):
+    @patch("fetchtool.abstract_fetch.subprocess.run")
+    def test_fetch_all_study_data(self, run_mock, tmpdir):
+        def raise_ex(*args, **kwargs):
+            raise Exception
+
+        run_mock.side_effect = raise_ex
         with WorkingDir(tmpdir):
-            call_cmd(
-                "fetch_assemblies.py -p {} -v -v -d {}".format(study_id, str(tmpdir))
+            fassemblies = fetch_assemblies.FetchAssemblies(
+                ["-p", study_id, "-v", "-d", str(tmpdir)]
             )
+            fassemblies.fetch()
+            validate_full_study(tmpdir)
+            run_mock.call_count = 2  # 2 assemblies - tried with aspera
+
+    @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_lftp")
+    @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_wget")
+    def test_fetch_sequential_runs_with_aspera(self, lftp_mock, wget_mock, tmpdir):
+        def raise_ex(*args, **kwargs):
+            raise Exception
+
+        lftp_mock.side_effect = raise_ex
+        wget_mock.side_effect = raise_ex
+        with WorkingDir(tmpdir):
+            fassemblies = fetch_assemblies.FetchAssemblies(
+                ["-p", study_id, "-d", str(tmpdir)]
+            )
+            fassemblies.fetch()
             validate_full_study(tmpdir)

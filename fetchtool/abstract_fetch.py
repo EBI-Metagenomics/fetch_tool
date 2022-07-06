@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import argparse
 import copy
 import ftplib
@@ -22,9 +23,9 @@ import json
 import logging
 import os
 import re
+import subprocess
 import sys
 from abc import ABC, abstractmethod
-from subprocess import call
 
 import pandas as pd
 import requests
@@ -32,8 +33,6 @@ from filelock import UnixFileLock
 from pandas.errors import EmptyDataError
 
 from fetchtool.exceptions import ENAFetch204, ENAFetch401, ENAFetchFail
-
-CONFIG_FILE = os.getenv("FETCH_TOOL_CONFIG", None)
 
 PRIVATE_ENA_FTP = "ftp.dcc-private.ebi.ac.uk"
 PUBLIC_ENA_FTP = "ftp.ebi.ac.uk"
@@ -57,6 +56,7 @@ class AbstractDataFetcher(ABC):
     NO_DATA_MSG = "No entries found!"
 
     def __init__(self, argv=sys.argv[1:]):
+
         self.args = self._parse_args(argv)
         self._validate_args()
 
@@ -64,16 +64,18 @@ class AbstractDataFetcher(ABC):
         self.create_output_dir(self.args.dir)
         self.base_dir = self.args.dir
 
-        if not self.args.config_file and not CONFIG_FILE:
+        config_file = os.getenv("FETCH_TOOL_CONFIG", None)
+
+        if not self.args.config_file and not config_file:
             raise ValueError(
                 "Missing configuration file. It shoud be provided using -c or setting the env variable $FETCH_TOOL_CONFIG"
             )
 
-        with open(self.args.config_file or CONFIG_FILE) as f:
+        with open(self.args.config_file or config_file) as f:
             self.config = json.load(f)
 
-        self.ENA_API_USER = self.config["enaAPIUsername"]
-        self.ENA_API_PASSWORD = self.config["enaAPIPassword"]
+        self.ENA_API_USER = self.config["ena_api_username"]
+        self.ENA_API_PASSWORD = self.config["ena_api_password"]
 
         self.interactive_mode = self.args.interactive
         self.private_mode = self.args.private
@@ -87,20 +89,6 @@ class AbstractDataFetcher(ABC):
         if self.args.projects or self.args.project_list:
             self.projects = self._get_project_accessions(self.args)
             self.sanity_check_project_accessions()
-
-        if self.args.private:
-            self.init_ena_dao()
-        else:
-            self.enadao = None
-
-    def init_ena_dao(self):
-        self.enadao = self.load_oracle_connection(
-            self.config["enaUser"],
-            self.config["enaPassword"],
-            self.config["enaHost"],
-            self.config["enaPort"],
-            self.config["enaInstance"],
-        )
 
     @abstractmethod
     def _validate_args(self):
@@ -260,11 +248,13 @@ class AbstractDataFetcher(ABC):
         if not self._is_file_valid(dest, dl_md5s) or self.force_mode:
             silentremove(dest)
             try:
-                is_success_lftp = self.download_lftp(dest, dl_file)
-                if not is_success_lftp:
-                    logging.info("Too many failed attempts. Trying wget now...")
-                    self.download_ftp(dest, dl_file)
-                file_downloaded = True
+                file_downloaded = self.download_aspera(dest, dl_file)
+                if not file_downloaded:
+                    logging.info("Aspera didn't work.. trying FTP with lftp")
+                    file_downloaded = self.download_lftp(dest, dl_file)
+                if not file_downloaded:
+                    logging.info("FTP didn't worked... trying wget now...")
+                    file_downloaded = self.download_wget(dest, dl_file)
             except Exception as e:
                 if self.ignore_errors:
                     logging.warning(e)
@@ -400,13 +390,17 @@ class AbstractDataFetcher(ABC):
                 project_runs = self.read_project_description_file(project_accession)
             except (EmptyDataError, FileNotFoundError):
                 project_runs = pd.DataFrame(project_data)
+
             headers = self.DEFAULT_HEADERS
 
             if self.desc_file_only:
                 project_data = self.generate_expected_desc_data(
                     project_accession, project_runs, project_data
                 )
-            project_runs = project_runs.append(project_data, sort=True)
+
+            project_runs = pd.concat(
+                [project_runs, pd.DataFrame(project_data)], sort=True
+            )
             project_runs = self.add_missing_headers(project_runs)
             project_runs = self.remove_project_desc_duplicates(project_runs)
 
@@ -416,7 +410,7 @@ class AbstractDataFetcher(ABC):
             project_runs.to_csv(project_file, sep="\t", index=False, columns=headers)
 
     def get_api_credentials(self):
-        return self.config["enaAPIUsername"] + ":" + self.config["enaAPIPassword"]
+        return self.config["ena_api_username"] + ":" + self.config["ena_api_password"]
 
     @staticmethod
     def _is_rawdata_filetype(filename):
@@ -466,15 +460,6 @@ class AbstractDataFetcher(ABC):
                 run_id + "_" + str(i + 1) + filetype for i, _ in enumerate(file_names)
             ]
 
-    @staticmethod
-    def load_oracle_connection(user, password, host, port, instance):
-        from fetchtool.oracle_db_access_object import OracleDataAccessObject
-        from fetchtool.oracle_db_connection import OracleDBConnection
-
-        return OracleDataAccessObject(
-            OracleDBConnection(user, password, host, port, instance)
-        )
-
     def _retrieve_ena_url(self, url, raise_on_204=True):
         """Request json from ENA
         raise_on_204: raise ENAFetch204 if the response status code i 204
@@ -522,7 +507,8 @@ class AbstractDataFetcher(ABC):
                 logging.info("File {} exists, but MD5 does not match".format(basename))
         return False
 
-    def download_ftp(self, dest, url, auth=True):
+    def download_wget(self, dest, url, auth=True):
+        """Download the files on the url using wget."""
         if url[:4] == "ftp.":
             url = "ftp://" + url
         attempt = 0
@@ -540,7 +526,7 @@ class AbstractDataFetcher(ABC):
                     dest,
                     url,
                 ]
-                retcode = call(download_command)
+                retcode = subprocess.call(download_command)
                 if retcode:
                     logging.error("Error downloading the file from " + url)
                 else:
@@ -612,36 +598,67 @@ class AbstractDataFetcher(ABC):
         else:
             return False
 
-    # no need to detect public or private anymore. Using same ftp. How do we find statuses..suppressed etc?
-    def evaluate_statues(self, status_ids):
-        logging.info("Evaluating assembly statuses...")
-        if len(status_ids) != 1:
-            logging.warning(
-                "Detected different statuses {statuses} "
-                "(e.g. private and public) within the same study.".format(
-                    statuses=status_ids
-                )
+    def download_aspera(self, dest: str, url: str) -> bool:
+        """Download using the aspera cli.
+        Usage example, to get file path and names from full FTP URL
+        - url = ftp.sra.ebi.ac.uk/vol1/sequence/ERZ166/ERZ1669403/contig.fa.gz
+        """
+        ASPERA_SERVER = self.config.get("aspera_server", "fasp.ebi.ac.uk")
+        ASPERA_BIN = os.environ.get("ASPERA_BIN") or self.config.get("aspera_bin")
+        # The cert is needed by the aspera cli tool (asperaweb_id_dsa.openssh) - which usually is in <installation>/cli/etc/"
+        ASPERA_CERT = os.environ.get("ASPERA_CERT") or self.config.get("aspera_cert")
+        if ASPERA_BIN is None or ASPERA_CERT is None:
+            logging.error(
+                "Aspera needs the binary ('aspera_bin') and the cert ('aspera_cert') config values"
             )
-            logging.warning("Cannot handle this at the moment. Program will exit now!")
-            sys.exit(1)
-        status_id = status_ids.pop()
-        # 2 = private and 4 = public and 7 == temp suppressd
-        if status_id == 2:
-            return 0
-        elif status_id == 4:
-            return 1
-        elif status_id == 7:
-            logging.warning("Study assemblies are temporarily suppressed!")
-            logging.warning(self.PROGRAM_EXIT_MSG)
-            sys.exit(1)
-        else:
-            logging.warning(
-                "Unsupported analysis status id found: {status_id}".format(
-                    status_id=status_id
-                )
+            return False
+
+        ASPERA_PORT = self.config.get("aspera_port", 33001)
+        ASPERA_ENA_PUBLIC_USER = self.config.get("aspera_ena_public_user", "era-fasp")
+
+        path = "/".join(url.split("ebi.ac.uk/")[-1].split("/")[:-1])
+        file_name = os.path.basename(url)
+
+        aspera_user_host = (
+            f"{ASPERA_ENA_PUBLIC_USER}@{ASPERA_SERVER}:{path}/{file_name}"
+        )
+        ascp_command = [
+            ASPERA_BIN,
+            "-l",
+            "300m",
+            "-P",
+            str(ASPERA_PORT),
+            "-i",
+            ASPERA_CERT,
+        ]
+        if self.private_mode:
+            # For private ones we need to remove the certificate
+            os.environ["ASPERA_SCP_PASS"] = self.ENA_API_PASSWORD
+            aspera_user_host = f"{self.ENA_API_USER}@{ASPERA_SERVER}:{path}/{file_name}"
+            del ascp_command[-2:]
+
+        ascp_command.extend([aspera_user_host, dest])
+
+        # only for debug logging level
+        if logging.DEBUG >= logging.root.level:
+            # "-L-", # print logging info, useful in case it fails
+            index = 5 if self.private_mode else 3
+            ascp_command.insert(index, "-L-")
+
+        try:
+            logging.info("Downloading with Aspera")
+            logging.info(" ".join(ascp_command))
+            result = subprocess.run(
+                ascp_command, capture_output=True, text=True, check=True
             )
-            logging.warning(self.PROGRAM_EXIT_MSG)
-            sys.exit(1)
+            logging.info(result.stdout)
+            logging.debug(result.stderr)
+        except Exception as error:
+            logging.exception(error)
+            logging.error("Failed to download the files with aspera")
+            return False
+
+        return True
 
     @staticmethod
     def get_md5_file(filename):
@@ -691,9 +708,9 @@ class AbstractDataFetcher(ABC):
 def silentremove(filename):
     try:
         os.remove(filename)
-    except OSError as e:  # this would be "except OSError, e:" before Python 2.6
-        if type(e) != FileNotFoundError:  # errno.ENOENT = no such file or directory
-            raise  # re-raise exception if a different error occurred
+    except OSError as e:
+        if type(e) != FileNotFoundError:
+            raise
 
 
 def md5(fname):

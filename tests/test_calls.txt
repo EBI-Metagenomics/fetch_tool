@@ -1,5 +1,0 @@
-python3 src/abstract_fetch_reads.py -v -v -p ERP110686;
-python3 src/abstract_fetch_reads.py -v -v -p ERP113309 --private;
-
-python3 src/abstract_fetch_assemblies.py -v -v -p ERP106358
-python3 src/abstract_fetch_assemblies.py -v -v -p ERP106358 --private
