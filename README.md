@@ -71,7 +71,7 @@ $ pip install -U git+https://{access_token}@github.com/EBI-Metagenomics/fetch_to
 
 #### Configuration file
 
-Setup the configuration file, the template [config/fetchdata-config-template.json](fetchdata-config-template.json) for the configuration file.
+Setup the configuration file, the template [fetchdata-config-template.json](config/fetchdata-config-template.json) for the configuration file.
 
 The required fields are:
 - For Aspera
@@ -82,8 +82,6 @@ The required fields are:
   - ena_api_password
 
 ### Install Aspera
-
-Taken from: http://docs.transfer.sdo.ebi.ac.uk/protocols/aspera/#endpoints
 
 ## Install
 
