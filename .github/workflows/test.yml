@@ -21,7 +21,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install -r requirements-test.txt
+          pip install .[test]
           # Aspera installation #
           . install-aspera.sh
       - name: 🧪 - Testing

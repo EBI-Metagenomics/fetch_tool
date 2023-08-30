@@ -24,9 +24,7 @@ import pytest
 
 from fetchtool import fetch_assemblies
 
-FIXTURES_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), os.pardir, "fixtures")
-)
+FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, "fixtures"))
 
 
 @pytest.mark.flaky
@@ -58,9 +56,7 @@ class TestFetchAssemblies:
 
     def test_process_additional_args_should_set_assemblies_from_arglist(self):
         assemblies = ["ERZ477685"]
-        fetch = fetch_assemblies.FetchAssemblies(
-            argv=["-p", "ERP104225", "-as"] + assemblies
-        )
+        fetch = fetch_assemblies.FetchAssemblies(argv=["-p", "ERP104225", "-as"] + assemblies)
         assert fetch.assemblies == assemblies
 
     def test_process_additional_args_args_should_set_assemblies_from_file(self, tmpdir):
@@ -69,18 +65,14 @@ class TestFetchAssemblies:
         assembly_file = os.path.join(tmpdir, "assemblies.txt")
         with open(assembly_file, "w") as f:
             f.write("\n".join(assemblies))
-        fetch = fetch_assemblies.FetchAssemblies(
-            argv=["-p", "ERP104225", "--assembly-list", assembly_file]
-        )
+        fetch = fetch_assemblies.FetchAssemblies(argv=["-p", "ERP104225", "--assembly-list", assembly_file])
         assert fetch.assemblies == assemblies
 
     @pytest.mark.skip("MAGs download is broken ATM, we are working to fix it")
     def test_process_additional_args_args_should_set_assemblies_from_type(self):
         mags = ["ERZ1069976"]
         type = "Metagenome-Assembled Genome (MAG)"
-        fetch = fetch_assemblies.FetchAssemblies(
-            argv=["-p", "ERP116715", "--assembly-type", type, "-as"] + mags
-        )
+        fetch = fetch_assemblies.FetchAssemblies(argv=["-p", "ERP116715", "--assembly-type", type, "-as"] + mags)
         assert fetch.assemblies == mags
 
     def test_filter_accessions_from_args_should_return_empty(self):
@@ -97,9 +89,7 @@ class TestFetchAssemblies:
             {"analysis_id": "ERZ477686"},
             {"analysis_id": "ERZ477687"},
         ]
-        assert run_data[0:2] == fetch._filter_accessions_from_args(
-            run_data, "analysis_id"
-        )
+        assert run_data[0:2] == fetch._filter_accessions_from_args(run_data, "analysis_id")
 
     def test_map_project_info_to_row_should_copy_fields(self):
         raw_data = {
@@ -203,25 +193,17 @@ class TestFetchAssemblies:
         ]
 
     @patch("fetchtool.fetch_assemblies.FetchAssemblies._retrieve_ena_url")
-    def test_process_additional_args_should_find_study_accessions_for_assemblies(
-        self, mocked_class1, tmpdir
-    ):
+    def test_process_additional_args_should_find_study_accessions_for_assemblies(self, mocked_class1, tmpdir):
         study_accession = "ERP123564"
         analysis_id = "ERZ1505406"
-        fetch_assemblies.FetchAssemblies._retrieve_ena_url = (
-            self.mock_get_study_from_assembly
-        )
-        fetch = fetch_assemblies.FetchAssemblies(
-            argv=["-as", analysis_id, "-d", str(tmpdir)]
-        )
+        fetch_assemblies.FetchAssemblies._retrieve_ena_url = self.mock_get_study_from_assembly
+        fetch = fetch_assemblies.FetchAssemblies(argv=["-as", analysis_id, "-d", str(tmpdir)])
         fetch._validate_args()
         fetch._process_additional_args()
         assert fetch.args.projects == {study_accession}
 
     @patch("fetchtool.fetch_assemblies.FetchAssemblies._retrieve_ena_url")
-    def test_retrieve_project_should_return_only_valid_assemblies_and_check_md5(
-        self, mocked_class1, tmpdir
-    ):
+    def test_retrieve_project_should_return_only_valid_assemblies_and_check_md5(self, mocked_class1, tmpdir):
         study_accession = "ERP123564"
         valid_assembly_file = "ERZ1505406.fasta.gz"
         valid_assembly_md5 = "e0e3c99075ae482083b3e8ca35e401e2"
@@ -231,17 +213,13 @@ class TestFetchAssemblies:
             "ERP123564.txt",
             "ERP123564.txt.lock",
         ]
-        fetch_assemblies.FetchAssemblies._retrieve_ena_url = (
-            self.mock_get_assembly_metadata
-        )
+        fetch_assemblies.FetchAssemblies._retrieve_ena_url = self.mock_get_assembly_metadata
         fetch_assemblies.FetchAssemblies.download_lftp = True
-        fetch = fetch_assemblies.FetchAssemblies(
-            argv=["-p", study_accession, "-d", str(tmpdir), "--private"]
-        )
+        fetch = fetch_assemblies.FetchAssemblies(argv=["-p", study_accession, "-d", str(tmpdir), "--private"])
         assemblies = fetch._retrieve_project_info_from_api(study_accession)
         for x in assemblies:
-            for file in x["file"]:
-                assembly_path = tmpdir / file
+            for file_ in x["file"]:
+                assembly_path = tmpdir / file_
                 Path(str(assembly_path)).touch()
         assert len(assemblies) == 1
         assert os.listdir(str(tmpdir)) == [valid_assembly_file]
