@@ -1,5 +1,5 @@
 [project]
-name = "fetchtool"
+name = "fetch-tool"
 readme = "README.md"
 authors = [
   {name = "MGnify team", email = "metagenomics-help@ebi.ac.uk"},
@@ -81,7 +81,7 @@ target-version = ["py38"]
 profile = "black"
 
 [tool.bumpversion]
-current_version = "0.8.1"
+current_version = "0.8.2"
 
 [[tool.bumpversion.files]]
 filename = "fetchtool/__init__.py"

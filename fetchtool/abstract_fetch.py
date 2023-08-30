@@ -26,6 +26,7 @@ import re
 import subprocess
 import sys
 from abc import ABC, abstractmethod
+from importlib.metadata import version
 
 import pandas as pd
 import requests
@@ -122,6 +123,7 @@ class AbstractDataFetcher(ABC):
         project_args.add_argument("-l", "--project-list", help="File containing line-separated project list")
         parser.add_argument("-d", "--dir", help="Base directory for downloads", default=os.getcwd())
         parser.add_argument("-v", "--verbose", help="Verbose", action="count")
+        parser.add_argument("--version", help="Version", action="version", version=version("fetch-tool"))
         parser.add_argument(
             "-f",
             "--force",
