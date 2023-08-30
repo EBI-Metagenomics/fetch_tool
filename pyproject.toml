@@ -85,3 +85,6 @@ current_version = "0.8.2"
 
 [[tool.bumpversion.files]]
 filename = "fetchtool/__init__.py"
+
+[[tool.bumpversion.files]]
+filename = "Containerfile"
