@@ -114,3 +114,6 @@ venv.bak/
 # Aspera
 aspera*/
 ibm-aspera-cli*
+
+# Ruff
+.ruff_cache/

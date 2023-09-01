@@ -26,10 +26,11 @@ import re
 import subprocess
 import sys
 from abc import ABC, abstractmethod
+from importlib.metadata import version
 
 import pandas as pd
 import requests
-from filelock import UnixFileLock
+from flufl.lock import Lock
 from pandas.errors import EmptyDataError
 
 from fetchtool.exceptions import ENAFetch204, ENAFetch401, ENAFetchFail
@@ -56,7 +57,6 @@ class AbstractDataFetcher(ABC):
     NO_DATA_MSG = "No entries found!"
 
     def __init__(self, argv=sys.argv[1:]):
-
         self.args = self._parse_args(argv)
         self._validate_args()
 
@@ -67,9 +67,7 @@ class AbstractDataFetcher(ABC):
         config_file = os.getenv("FETCH_TOOL_CONFIG", None)
 
         if not self.args.config_file and not config_file:
-            raise ValueError(
-                "Missing configuration file. It shoud be provided using -c or setting the env variable $FETCH_TOOL_CONFIG"
-            )
+            raise ValueError("Missing configuration file. It shoud be provided using -c or setting the env variable $FETCH_TOOL_CONFIG")
 
         with open(self.args.config_file or config_file) as f:
             self.config = json.load(f)
@@ -109,8 +107,8 @@ class AbstractDataFetcher(ABC):
 
     @staticmethod
     def _read_line_sep_file(filename):
-        with open(filename) as f:
-            data = [l.strip() for l in f.readlines()]
+        with open(filename) as fhandler:
+            data = [line.strip() for line in fhandler.readlines()]
         return data
 
     def _parse_args(self, argv):
@@ -122,13 +120,10 @@ class AbstractDataFetcher(ABC):
             help="Whitespace separated list of project accession(s)",
             nargs="+",
         )
-        project_args.add_argument(
-            "-l", "--project-list", help="File containing line-separated project list"
-        )
-        parser.add_argument(
-            "-d", "--dir", help="Base directory for downloads", default=os.getcwd()
-        )
+        project_args.add_argument("-l", "--project-list", help="File containing line-separated project list")
+        parser.add_argument("-d", "--dir", help="Base directory for downloads", default=os.getcwd())
         parser.add_argument("-v", "--verbose", help="Verbose", action="count")
+        parser.add_argument("--version", help="Version", action="version", version=version("fetch-tool"))
         parser.add_argument(
             "-f",
             "--force",
@@ -140,18 +135,14 @@ class AbstractDataFetcher(ABC):
             help="Ignore download errors and continue",
             action="store_true",
         )
-        parser.add_argument(
-            "--private", help="Use when fetching private data", action="store_true"
-        )
+        parser.add_argument("--private", help="Use when fetching private data", action="store_true")
         parser.add_argument(
             "-i",
             "--interactive",
             help="interactive mode - allows you to skip failed downloads.",
             action="store_true",
         )
-        parser.add_argument(
-            "-c", "--config-file", required=False, help="Alternative config file"
-        )
+        parser.add_argument("-c", "--config-file", required=False, help="Alternative config file")
         parser.add_argument(
             "--fix-desc-file",
             help="Fixed runs in project description file",
@@ -215,9 +206,7 @@ class AbstractDataFetcher(ABC):
             return
         secondary_project_accession = project_accession
 
-        os.makedirs(
-            self.get_project_workdir(secondary_project_accession), exist_ok=True
-        )
+        os.makedirs(self.get_project_workdir(secondary_project_accession), exist_ok=True)
 
         self.write_project_files(secondary_project_accession, new_data)
 
@@ -261,16 +250,10 @@ class AbstractDataFetcher(ABC):
                 else:
                     raise e
         else:
-            logging.info(
-                "File {} already exists and MD5 matches, skipping download".format(
-                    filename
-                )
-            )
+            logging.info("File {} already exists and MD5 matches, skipping download".format(filename))
 
         if not self._is_file_valid(dest, dl_md5s):
-            msg = "MD5 of downloaded file {} does not match expected MD5".format(
-                filename
-            )
+            msg = "MD5 of downloaded file {} does not match expected MD5".format(filename)
             if self.ignore_errors:
                 logging.error(msg)
             else:
@@ -288,9 +271,7 @@ class AbstractDataFetcher(ABC):
         return os.path.join(self.get_project_workdir(project_accession), "download")
 
     def get_project_insdc_txt_file(self, project_accession):
-        return os.path.join(
-            self.get_project_workdir(project_accession), project_accession + "insdc.txt"
-        )
+        return os.path.join(self.get_project_workdir(project_accession), project_accession + "insdc.txt")
 
     def read_download_data(self, project_accession):
         filepath = self.get_project_download_file(project_accession)
@@ -313,16 +294,15 @@ class AbstractDataFetcher(ABC):
             self.create_empty_file(download_file)
 
         lock_file = download_file + ".lock"
-        with UnixFileLock(lock_file):
+        # Lock for 1 minute
+        with Lock(lock_file, lifetime=60):
             existing_rows = set(self.read_download_data(project_accession))
             existing_rows = existing_rows.union(set(new_download_rows))
             with open(download_file, "w+") as f:
                 f.writelines(sorted(existing_rows))
 
     def get_project_filepath(self, project_accession):
-        return os.path.join(
-            self.get_project_workdir(project_accession), project_accession + ".txt"
-        )
+        return os.path.join(self.get_project_workdir(project_accession), project_accession + ".txt")
 
     def read_project_description_file(self, project_accession):
         filepath = self.get_project_filepath(project_accession)
@@ -347,9 +327,7 @@ class AbstractDataFetcher(ABC):
             accessions = set()
         return accessions
 
-    def generate_expected_desc_data(
-        self, project_accession, existing_data, project_data
-    ):
+    def generate_expected_desc_data(self, project_accession, existing_data, project_data):
         accessions = self.get_downloaded_raw_file_accessions(project_accession)
         if "run_id" in existing_data:
             accessions = accessions.union(existing_data["run_id"].tolist())
@@ -384,7 +362,8 @@ class AbstractDataFetcher(ABC):
         project_file = self.get_project_filepath(project_accession)
 
         lock_file = project_file + ".lock"
-        with UnixFileLock(lock_file):
+        # We lock the file for 2 minutes, should be enough
+        with Lock(lock_file, lifetime=120):
             # Fallback in case empty file exists
             try:
                 project_runs = self.read_project_description_file(project_accession)
@@ -394,19 +373,13 @@ class AbstractDataFetcher(ABC):
             headers = self.DEFAULT_HEADERS
 
             if self.desc_file_only:
-                project_data = self.generate_expected_desc_data(
-                    project_accession, project_runs, project_data
-                )
+                project_data = self.generate_expected_desc_data(project_accession, project_runs, project_data)
 
-            project_runs = pd.concat(
-                [project_runs, pd.DataFrame(project_data)], sort=True
-            )
+            project_runs = pd.concat([project_runs, pd.DataFrame(project_data)], sort=True)
             project_runs = self.add_missing_headers(project_runs)
             project_runs = self.remove_project_desc_duplicates(project_runs)
 
-            project_runs = project_runs.fillna("n/a").sort_values(
-                by=["run_id", "analysis_id"]
-            )
+            project_runs = project_runs.fillna("n/a").sort_values(by=["run_id", "analysis_id"])
             project_runs.to_csv(project_file, sep="\t", index=False, columns=headers)
 
     def get_api_credentials(self):
@@ -420,9 +393,7 @@ class AbstractDataFetcher(ABC):
         file_names = joined_file_names.split(";")
         md5s = md5s.split(";")
         filename_md5s = zip(file_names, md5s)
-        filtered_filename_md5s = [
-            (f, md5) for f, md5 in filename_md5s if self._is_rawdata_filetype(f)
-        ]
+        filtered_filename_md5s = [(f, md5) for f, md5 in filename_md5s if self._is_rawdata_filetype(f)]
         filtered_file_names, filtered_md5s = zip(*filtered_filename_md5s)
         return filtered_file_names, filtered_md5s
 
@@ -456,9 +427,7 @@ class AbstractDataFetcher(ABC):
         if len(file_names) == 1:
             return [run_id + filetype]
         else:
-            return [
-                run_id + "_" + str(i + 1) + filetype for i, _ in enumerate(file_names)
-            ]
+            return [run_id + "_" + str(i + 1) + filetype for i, _ in enumerate(file_names)]
 
     def _retrieve_ena_url(self, url, raise_on_204=True):
         """Request json from ENA
@@ -475,25 +444,20 @@ class AbstractDataFetcher(ABC):
                     return response.json()
                 if response.status_code == 204:
                     if raise_on_204:
-                        raise ENAFetch204(
-                            "No Runs/Assemblies found. Check if study is metagenomic"
-                        )
+                        raise ENAFetch204("No Runs/Assemblies found. Check if study is metagenomic")
                     logging.info("Run/Assembly may not be metagenomic. Skipping...")
                     return
                 elif response.status_code == 401:
                     raise ENAFetch401("Invalid Username or Password!")
                 else:
                     logging.warning(
-                        "Received the following unknown response code from the "
-                        "Portal API server:\n{}".format(response.status_code)
+                        "Received the following unknown response code from the " "Portal API server:\n{}".format(response.status_code)
                     )
             except requests.exceptions.RequestException as e:
                 logging.warning("Request exception. " "Exception:\n {}".format(e))
             attempt += 1
 
-        error_message = (
-            "Failed to open url " + url + " after " + str(attempt) + " attempts. "
-        )
+        error_message = "Failed to open url " + url + " after " + str(attempt) + " attempts. "
 
         raise ENAFetchFail(error_message)
 
@@ -537,13 +501,9 @@ class AbstractDataFetcher(ABC):
                 logging.error(err)
                 attempt += 1
             if attempt >= self.config["url_max_attempts"]:
-                logging.critical(
-                    "Failed to retrieve" + url + " after " + str(attempt) + " attempts"
-                )
+                logging.critical("Failed to retrieve" + url + " after " + str(attempt) + " attempts")
                 if self.interactive_mode:
-                    var = input(
-                        "Please type C to continue to fetch the next sequence file or anything else to exit: "
-                    )
+                    var = input("Please type C to continue to fetch the next sequence file or anything else to exit: ")
                     if not var.upper().startswith("C"):
                         logging.info("Exiting now")
                         sys.exit(0)
@@ -551,9 +511,7 @@ class AbstractDataFetcher(ABC):
                         break
                 else:
                     if self.force_mode:
-                        logging.warning(
-                            "Force mode is activated. Will skip the download of this run and move onto the next sequence!"
-                        )
+                        logging.warning("Force mode is activated. Will skip the download of this run and move onto the next sequence!")
                         break
                     else:
                         logging.warning(
@@ -608,9 +566,7 @@ class AbstractDataFetcher(ABC):
         # The cert is needed by the aspera cli tool (asperaweb_id_dsa.openssh) - which usually is in <installation>/cli/etc/"
         ASPERA_CERT = os.environ.get("ASPERA_CERT") or self.config.get("aspera_cert")
         if ASPERA_BIN is None or ASPERA_CERT is None:
-            logging.error(
-                "Aspera needs the binary ('aspera_bin') and the cert ('aspera_cert') config values"
-            )
+            logging.error("Aspera needs the binary ('aspera_bin') and the cert ('aspera_cert') config values")
             return False
 
         ASPERA_PORT = self.config.get("aspera_port", 33001)
@@ -619,9 +575,7 @@ class AbstractDataFetcher(ABC):
         path = "/".join(url.split("ebi.ac.uk/")[-1].split("/")[:-1])
         file_name = os.path.basename(url)
 
-        aspera_user_host = (
-            f"{ASPERA_ENA_PUBLIC_USER}@{ASPERA_SERVER}:{path}/{file_name}"
-        )
+        aspera_user_host = f"{ASPERA_ENA_PUBLIC_USER}@{ASPERA_SERVER}:{path}/{file_name}"
         ascp_command = [
             ASPERA_BIN,
             "-l",
@@ -648,9 +602,7 @@ class AbstractDataFetcher(ABC):
         try:
             logging.info("Downloading with Aspera")
             logging.info(" ".join(ascp_command))
-            result = subprocess.run(
-                ascp_command, capture_output=True, text=True, check=True
-            )
+            result = subprocess.run(ascp_command, capture_output=True, text=True, check=True)
             logging.info(result.stdout)
             logging.debug(result.stderr)
         except Exception as error:
@@ -698,9 +650,7 @@ class AbstractDataFetcher(ABC):
     def sanity_check_project_accessions(self):
         for study_acc in self.projects:
             if not self.is_study_accession(study_acc):
-                logging.error(
-                    "Encountered an invalid study accession: {}".format(study_acc)
-                )
+                logging.error("Encountered an invalid study accession: {}".format(study_acc))
                 logging.info("Program will exit now!")
                 sys.exit(1)
 
