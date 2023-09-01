@@ -1,7 +1,7 @@
 FROM python:3.9-slim
 
 LABEL maintainer="Microbiome Informatics"
-LABEL version="0.8.2"
+LABEL version="0.9.0"
 LABEL description="EBI Fetch Tool Docker Image."
 
 # We need curl to download aspera and ps for nextflow monitoring
