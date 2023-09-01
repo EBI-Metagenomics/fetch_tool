@@ -82,6 +82,11 @@ profile = "black"
 
 [tool.bumpversion]
 current_version = "0.8.2"
+commit = true
+tag = true
 
 [[tool.bumpversion.files]]
 filename = "fetchtool/__init__.py"
+
+[[tool.bumpversion.files]]
+filename = "Containerfile"
