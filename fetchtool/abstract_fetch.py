@@ -28,15 +28,32 @@ import sys
 from abc import ABC, abstractmethod
 from importlib.metadata import version
 
+import boto3
 import pandas as pd
 import requests
+from botocore import UNSIGNED
+from botocore.config import Config
 from flufl.lock import Lock
 from pandas.errors import EmptyDataError
+from tenacity import (
+    RetryError,
+    before_log,
+    retry,
+    retry_if_result,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from fetchtool.exceptions import ENAFetch204, ENAFetch401, ENAFetchFail
 
 PRIVATE_ENA_FTP = "ftp.dcc-private.ebi.ac.uk"
 PUBLIC_ENA_FTP = "ftp.ebi.ac.uk"
+MAX_ATTEMPTS = 3
+
+
+def is_false(value):
+    """Tenacity - retry method"""
+    return value is False
 
 
 class AbstractDataFetcher(ABC):
@@ -64,13 +81,16 @@ class AbstractDataFetcher(ABC):
         self.create_output_dir(self.args.dir)
         self.base_dir = self.args.dir
 
+        self.config = {}
+        self._load_default_config_values()
+
         config_file = os.getenv("FETCH_TOOL_CONFIG", None)
 
         if not self.args.config_file and not config_file:
-            raise ValueError("Missing configuration file. It shoud be provided using -c or setting the env variable $FETCH_TOOL_CONFIG")
-
-        with open(self.args.config_file or config_file) as f:
-            self.config = json.load(f)
+            logging.debug("No config file was provided, the tool will use the default values for public data")
+        else:
+            with open(self.args.config_file or config_file) as f:
+                self.config = json.load(f)
 
         self.ENA_API_USER = self.config["ena_api_username"]
         self.ENA_API_PASSWORD = self.config["ena_api_password"]
@@ -80,8 +100,7 @@ class AbstractDataFetcher(ABC):
         self.force_mode = self.args.force
         self.desc_file_only = self.args.fix_desc_file
         self.ignore_errors = self.args.ignore_errors
-
-        self.prod_user = os.environ.get("USER") == "emgpr"
+        self.ebi = self.args.ebi
 
         self._process_additional_args()
         if self.args.projects or self.args.project_list:
@@ -148,8 +167,17 @@ class AbstractDataFetcher(ABC):
             help="Fixed runs in project description file",
             action="store_true",
         )
+        parser.add_argument("-e", "--ebi", required=False, help="Set this flag when running on EBI infrastcutrue", action="store_true")
         parser = self.add_arguments(parser)
         return parser.parse_args(argv)
+
+    def _load_default_config_values(self):
+        """Load the default values in the config object"""
+        self.config["ena_api_username"] = ""
+        self.config["ena_api_password"] = ""
+        self.config["url_max_attempts"] = 5
+        self.config["fire_endpoint"] = "http://hl.fire.sdo.ebi.ac.uk"
+        self.config["fire_ena_bucket"] = "era-public"
 
     @staticmethod
     def add_arguments(parser):
@@ -226,9 +254,9 @@ class AbstractDataFetcher(ABC):
             file_md5s = run["MD5"]
             for dl_file, dl_name in zip(download_sources, filenames):
                 dest = os.path.join(raw_dir, dl_name)
-                self.download_raw_file(dl_file, dest, file_md5s, self.private_mode)
+                self.download_raw_file(dl_file, dest, file_md5s)
 
-    def download_raw_file(self, dl_file, dest, dl_md5s, is_public):
+    def download_raw_file(self, dl_file, dest, dl_md5s):
         """
         Returns true if file was re-downloaded
         """
@@ -237,16 +265,27 @@ class AbstractDataFetcher(ABC):
         if not self._is_file_valid(dest, dl_md5s) or self.force_mode:
             silentremove(dest)
             try:
-                file_downloaded = self.download_aspera(dest, dl_file)
+                # Copying data from NFS within EBI infrastructure only works for public data
+                if not self.private_mode and self.ebi:
+                    logging.info("Downloading using EBI's Fire AWS compatible storage")
+                    file_downloaded = self.download_aws(dest, dl_file)
+                if not self.private_mode and not file_downloaded:
+                    logging.info("Downloading with rsync using EBI's rsync server.")
+                    file_downloaded = self.download_rsync(dest, dl_file)
                 if not file_downloaded:
-                    logging.info("Aspera didn't work.. trying FTP with lftp")
+                    logging.info("Downloading from the FTP server with lftp.")
                     file_downloaded = self.download_lftp(dest, dl_file)
                 if not file_downloaded:
-                    logging.info("FTP didn't worked... trying wget now...")
+                    logging.info("Downloading with wget.")
                     file_downloaded = self.download_wget(dest, dl_file)
+            except RetryError:
+                logging.error("Failed to download the file.")
+                if self.ignore_errors:
+                    logging.warning("Ignore errors or force mode activated. This file will be ignored")
+                    return False
             except Exception as e:
                 if self.ignore_errors:
-                    logging.warning(e)
+                    logging.error(e)
                 else:
                     raise e
         else:
@@ -398,14 +437,7 @@ class AbstractDataFetcher(ABC):
         return filtered_file_names, filtered_md5s
 
     def _get_raw_filenames(self, filepaths, md5s, run_id, is_submitted_file):
-        """
-            Rename file names if submitted files or if generated assemblies
-        :param filepaths:
-        :param md5s:
-        :param run_id:
-        :param is_submitted_file:
-        :return:
-        """
+        """Rename file names if submitted files or if generated assemblies"""
         filepaths, md5s = self._filter_secondary_files(filepaths, md5s)
         if is_submitted_file or (not is_submitted_file and run_id.startswith("ERZ")):
             file_names = self._rename_raw_files(filepaths, run_id)
@@ -471,55 +503,57 @@ class AbstractDataFetcher(ABC):
                 logging.info("File {} exists, but MD5 does not match".format(basename))
         return False
 
-    def download_wget(self, dest, url, auth=True):
+    @retry(
+        retry=retry_if_result(is_false),
+        stop=stop_after_attempt(MAX_ATTEMPTS),
+        wait=wait_exponential(multiplier=1, min=2, max=5),
+        before=before_log(logging, logging.DEBUG),
+    )
+    def download_wget(self, dest, url):
         """Download the files on the url using wget."""
         if url[:4] == "ftp.":
             url = "ftp://" + url
-        attempt = 0
-        while True:
-            try:
-                logging.info("Downloading file from FTP server..." + url)
-                download_command = [
-                    "wget",
-                    "-v",
-                    "--user={}".format(self.ENA_API_USER),
-                    "--password={}".format(self.ENA_API_PASSWORD) if auth else "-q",
-                    "-t",
-                    "5",
-                    "-O",
-                    dest,
-                    url,
-                ]
-                retcode = subprocess.call(download_command)
-                if retcode:
-                    logging.error("Error downloading the file from " + url)
-                else:
-                    logging.info("Done.")
-                break
-            except IOError as err:
-                logging.error("Error downloading the file from " + url)
-                logging.error(err)
-                attempt += 1
-            if attempt >= self.config["url_max_attempts"]:
-                logging.critical("Failed to retrieve" + url + " after " + str(attempt) + " attempts")
-                if self.interactive_mode:
-                    var = input("Please type C to continue to fetch the next sequence file or anything else to exit: ")
-                    if not var.upper().startswith("C"):
-                        logging.info("Exiting now")
-                        sys.exit(0)
-                    else:
-                        break
-                else:
-                    if self.force_mode:
-                        logging.warning("Force mode is activated. Will skip the download of this run and move onto the next sequence!")
-                        break
-                    else:
-                        logging.warning(
-                            "Too many failed attempts. Program will exit now. "
-                            + "Try again to fetch the data in interactive mode (-i option)!"
-                        )
-                        sys.exit(1)
+        logging.info("Downloading file from FTP server..." + url)
+        download_command = [
+            "wget",
+            "-v",
+            f"--user={self.ENA_API_USER}",
+            f"--password={self.ENA_API_PASSWORD}" if self.private_mode else "-q",
+            "-t",
+            "5",
+            "-O",
+            dest,
+            url,
+        ]
+        retcode = subprocess.call(download_command)
+        if retcode:
+            logging.error("Error downloading the file from " + url)
+            return False
+        return True
 
+    @retry(
+        retry=retry_if_result(is_false),
+        stop=stop_after_attempt(MAX_ATTEMPTS),
+        wait=wait_exponential(multiplier=1, min=2, max=5),
+        before=before_log(logging, logging.DEBUG),
+    )
+    def download_rsync(self, dest, url):
+        """Download from from the EBI rsync endpoint.
+        Usage example, to get file path and names from full FTP URL
+        - url = ftp.sra.ebi.ac.uk/vol1/sequence/ERZ166/ERZ1669403/contig.fa.gz
+        - path list = ['vol1', 'sequence', 'ERZ166', 'ERZ1669403']
+        - path = vol1/sequence/ERZ166/ERZ1669403
+        - filename = contig.fasta.gz
+        """
+        # TODO: implementation pending
+        pass
+
+    @retry(
+        retry=retry_if_result(is_false),
+        stop=stop_after_attempt(MAX_ATTEMPTS),
+        wait=wait_exponential(multiplier=1, min=2, max=5),
+        before=before_log(logging, logging.DEBUG),
+    )
     def download_lftp(self, dest, url):
         """Download from ENA FTP server.
         Usage example, to get file path and names from full FTP URL
@@ -532,84 +566,51 @@ class AbstractDataFetcher(ABC):
         path_list = url.split("ebi.ac.uk/")[-1].split("/")[:-1]
         path = "/".join(path_list)
         file_name = os.path.basename(url)
-        attempt = 0
-        while attempt <= 3:
-            try:
-                with ftplib.FTP(server, timeout=300) as ftp:
-                    logging.info("Downloading file from FTP server..." + url)
-                    if self.private_mode:
-                        logging.info("Logging in...")
-                        ftp.login(self.ENA_API_USER, self.ENA_API_PASSWORD)
-                    else:
-                        logging.info("Logging as anonymous")
-                        ftp.login()
-                    ftp.cwd(path)
-                    logging.info("Getting the file...")
-                    # store with the same name
-                    with open(dest, "wb") as output_file:
-                        ftp.retrbinary("RETR " + file_name, output_file.write)
-                    logging.info("File " + dest + " downloaded.")
-                    return True
-            except ftplib.all_errors as e:
-                logging.error(e)
-                attempt += 1
-        else:
-            return False
-
-    def download_aspera(self, dest: str, url: str) -> bool:
-        """Download using the aspera cli.
-        Usage example, to get file path and names from full FTP URL
-        - url = ftp.sra.ebi.ac.uk/vol1/sequence/ERZ166/ERZ1669403/contig.fa.gz
-        """
-        ASPERA_SERVER = self.config.get("aspera_server", "fasp.ebi.ac.uk")
-        ASPERA_BIN = os.environ.get("ASPERA_BIN") or self.config.get("aspera_bin")
-        # The cert is needed by the aspera cli tool (asperaweb_id_dsa.openssh) - which usually is in <installation>/cli/etc/"
-        ASPERA_CERT = os.environ.get("ASPERA_CERT") or self.config.get("aspera_cert")
-        if ASPERA_BIN is None or ASPERA_CERT is None:
-            logging.error("Aspera needs the binary ('aspera_bin') and the cert ('aspera_cert') config values")
-            return False
-
-        ASPERA_PORT = self.config.get("aspera_port", 33001)
-        ASPERA_ENA_PUBLIC_USER = self.config.get("aspera_ena_public_user", "era-fasp")
-
-        path = "/".join(url.split("ebi.ac.uk/")[-1].split("/")[:-1])
-        file_name = os.path.basename(url)
-
-        aspera_user_host = f"{ASPERA_ENA_PUBLIC_USER}@{ASPERA_SERVER}:{path}/{file_name}"
-        ascp_command = [
-            ASPERA_BIN,
-            "-l",
-            "300m",
-            "-P",
-            str(ASPERA_PORT),
-            "-i",
-            ASPERA_CERT,
-        ]
-        if self.private_mode:
-            # For private ones we need to remove the certificate
-            os.environ["ASPERA_SCP_PASS"] = self.ENA_API_PASSWORD
-            aspera_user_host = f"{self.ENA_API_USER}@{ASPERA_SERVER}:{path}/{file_name}"
-            del ascp_command[-2:]
-
-        ascp_command.extend([aspera_user_host, dest])
-
-        # only for debug logging level
-        if logging.DEBUG >= logging.root.level:
-            # "-L-", # print logging info, useful in case it fails
-            index = 5 if self.private_mode else 3
-            ascp_command.insert(index, "-L-")
 
         try:
-            logging.info("Downloading with Aspera")
-            logging.info(" ".join(ascp_command))
-            result = subprocess.run(ascp_command, capture_output=True, text=True, check=True)
-            logging.info(result.stdout)
-            logging.debug(result.stderr)
-        except Exception as error:
-            logging.exception(error)
-            logging.error("Failed to download the files with aspera")
+            with ftplib.FTP(server, timeout=300) as ftp:
+                logging.info("Downloading file from FTP server..." + url)
+                if self.private_mode:
+                    logging.info("Logging in...")
+                    ftp.login(self.ENA_API_USER, self.ENA_API_PASSWORD)
+                else:
+                    logging.info("Logging as anonymous")
+                    ftp.login()
+                ftp.cwd(path)
+                logging.info("Getting the file...")
+                # store with the same name
+                with open(dest, "wb") as output_file:
+                    ftp.retrbinary("RETR " + file_name, output_file.write)
+                logging.info("File " + dest + " downloaded.")
+                return True
+        except ftplib.all_errors as e:
+            logging.error(e)
             return False
 
+    @retry(
+        retry=retry_if_result(is_false),
+        stop=stop_after_attempt(MAX_ATTEMPTS),
+        wait=wait_exponential(multiplier=1, min=2, max=5),
+        before=before_log(logging, logging.DEBUG),
+    )
+    def download_aws(self, dest: str, url: str) -> bool:
+        """Copy the file using the aws cli to access EBI Fire. Only works within EBI Network
+        Usage example, to get file path and names from full FTP URL
+        - url = ftp.sra.ebi.ac.uk/vol1/sequence/ERZ166/ERZ1669403/contig.fa.gz
+        - dest = destination path
+        """
+        fire_path = url.replace("ftp.sra.ebi.ac.uk/vol1/", "")
+        fire_endpoint = self.config["fire_endpoint"]
+        ena_bucket_name = self.config["fire_ena_bucket"]
+        try:
+            s3 = boto3.client("s3", endpoint_url=fire_endpoint, config=Config(signature_version=UNSIGNED))
+            object_key = fire_path
+            s3.download_file(ena_bucket_name, object_key, dest)
+            logging.info("File downloaded successfully")
+        except Exception as ex:
+            logging.exception(ex)
+            logging.error(f"Download the file with boto3 (aws cli) failed source: {url}, dest: {dest}.")
+            return False
         return True
 
     @staticmethod

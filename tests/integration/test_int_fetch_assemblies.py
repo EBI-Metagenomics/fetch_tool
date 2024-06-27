@@ -16,17 +16,13 @@
 
 import csv
 import os
-import subprocess
-import sys
 from unittest.mock import patch
 
 import pytest
 
 from fetchtool import fetch_assemblies
 
-FIXTURES_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), os.pardir, "fixtures")
-)
+FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, "fixtures"))
 
 
 class WorkingDir:
@@ -116,24 +112,22 @@ class TestFetchCompleteStudyAssemblies:
 
         run_mock.side_effect = raise_ex
         with WorkingDir(tmpdir):
-            fassemblies = fetch_assemblies.FetchAssemblies(
-                ["-p", study_id, "-v", "-d", str(tmpdir)]
-            )
+            fassemblies = fetch_assemblies.FetchAssemblies(["-p", study_id, "-v", "-d", str(tmpdir)])
             fassemblies.fetch()
             validate_full_study(tmpdir)
             run_mock.call_count = 2  # 2 assemblies - tried with aspera
 
-    @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_lftp")
-    @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_wget")
-    def test_fetch_sequential_runs_with_aspera(self, lftp_mock, wget_mock, tmpdir):
-        def raise_ex(*args, **kwargs):
-            raise Exception
+    # @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_lftp")
+    # @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_wget")
+    # def test_fetch_sequential_runs_with_aspera(self, lftp_mock, wget_mock, tmpdir):
+    #     def raise_ex(*args, **kwargs):
+    #         raise Exception
 
-        lftp_mock.side_effect = raise_ex
-        wget_mock.side_effect = raise_ex
-        with WorkingDir(tmpdir):
-            fassemblies = fetch_assemblies.FetchAssemblies(
-                ["-p", study_id, "-d", str(tmpdir)]
-            )
-            fassemblies.fetch()
-            validate_full_study(tmpdir)
+    #     lftp_mock.side_effect = raise_ex
+    #     wget_mock.side_effect = raise_ex
+    #     with WorkingDir(tmpdir):
+    #         fassemblies = fetch_assemblies.FetchAssemblies(
+    #             ["-p", study_id, "-d", str(tmpdir)]
+    #         )
+    #         fassemblies.fetch()
+    #         validate_full_study(tmpdir)
