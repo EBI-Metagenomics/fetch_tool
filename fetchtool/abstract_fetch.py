@@ -90,7 +90,7 @@ class AbstractDataFetcher(ABC):
             logging.debug("No config file was provided, the tool will use the default values for public data")
         else:
             with open(self.args.config_file or config_file) as f:
-                self.config = json.load(f)
+                self.config = self.config | json.load(f)
 
         self.ENA_API_USER = self.config["ena_api_username"]
         self.ENA_API_PASSWORD = self.config["ena_api_password"]
@@ -254,8 +254,19 @@ class AbstractDataFetcher(ABC):
             file_md5s = run["MD5"]
             for dl_file, dl_name in zip(download_sources, filenames):
                 dest = os.path.join(raw_dir, dl_name)
-                self.download_raw_file(dl_file, dest, file_md5s)
+                try:
+                    self.download_raw_file(dl_file, dest, file_md5s)
+                except RetryError:
+                    logging.error(f"Failed to download file {dl_file}.")
+                    if not self.ignore_errors:
+                        raise
 
+    @retry(
+        retry=retry_if_result(is_false),
+        stop=stop_after_attempt(MAX_ATTEMPTS),
+        wait=wait_exponential(multiplier=1, min=2, max=5),
+        before=before_log(logging, logging.DEBUG),
+    )
     def download_raw_file(self, dl_file, dest, dl_md5s):
         """
         Returns true if file was re-downloaded
@@ -269,20 +280,15 @@ class AbstractDataFetcher(ABC):
                 if not self.private_mode and self.ebi:
                     logging.info("Downloading using EBI's Fire AWS compatible storage")
                     file_downloaded = self.download_aws(dest, dl_file)
+                if not file_downloaded:
+                    logging.info("Downloading from the FTP server with lftp.")
+                    file_downloaded = self.download_lftp(dest, dl_file)
                 if not self.private_mode and not file_downloaded:
                     logging.info("Downloading with rsync using EBI's rsync server.")
                     file_downloaded = self.download_rsync(dest, dl_file)
                 if not file_downloaded:
-                    logging.info("Downloading from the FTP server with lftp.")
-                    file_downloaded = self.download_lftp(dest, dl_file)
-                if not file_downloaded:
                     logging.info("Downloading with wget.")
                     file_downloaded = self.download_wget(dest, dl_file)
-            except RetryError:
-                logging.error("Failed to download the file.")
-                if self.ignore_errors:
-                    logging.warning("Ignore errors or force mode activated. This file will be ignored")
-                    return False
             except Exception as e:
                 if self.ignore_errors:
                     logging.error(e)
@@ -503,12 +509,6 @@ class AbstractDataFetcher(ABC):
                 logging.info("File {} exists, but MD5 does not match".format(basename))
         return False
 
-    @retry(
-        retry=retry_if_result(is_false),
-        stop=stop_after_attempt(MAX_ATTEMPTS),
-        wait=wait_exponential(multiplier=1, min=2, max=5),
-        before=before_log(logging, logging.DEBUG),
-    )
     def download_wget(self, dest, url):
         """Download the files on the url using wget."""
         if url[:4] == "ftp.":
@@ -531,29 +531,26 @@ class AbstractDataFetcher(ABC):
             return False
         return True
 
-    @retry(
-        retry=retry_if_result(is_false),
-        stop=stop_after_attempt(MAX_ATTEMPTS),
-        wait=wait_exponential(multiplier=1, min=2, max=5),
-        before=before_log(logging, logging.DEBUG),
-    )
     def download_rsync(self, dest, url):
-        """Download from from the EBI rsync endpoint.
-        Usage example, to get file path and names from full FTP URL
-        - url = ftp.sra.ebi.ac.uk/vol1/sequence/ERZ166/ERZ1669403/contig.fa.gz
-        - path list = ['vol1', 'sequence', 'ERZ166', 'ERZ1669403']
-        - path = vol1/sequence/ERZ166/ERZ1669403
-        - filename = contig.fasta.gz
-        """
-        # TODO: implementation pending
-        pass
+        """Download from from the EBI rsync endpoint."""
+        # replace protocol
+        if url[:4] == "ftp.":
+            url = "rsync://" + url
+        download_command = [
+            "rsync",
+            "-v",
+            url,
+            dest,
+        ]
+        logging.info(" ".join(download_command))
+        result = subprocess.run(download_command, capture_output=True, text=True)
+        if result.returncode:
+            logging.error(f"Error rsyncing the file from. Command: {' '.join(download_command)}.")
+            logging.error(f"Stdout: {result.stdout}")
+            logging.error(f"Stderr: {result.stderr}")
+            return False
+        return True
 
-    @retry(
-        retry=retry_if_result(is_false),
-        stop=stop_after_attempt(MAX_ATTEMPTS),
-        wait=wait_exponential(multiplier=1, min=2, max=5),
-        before=before_log(logging, logging.DEBUG),
-    )
     def download_lftp(self, dest, url):
         """Download from ENA FTP server.
         Usage example, to get file path and names from full FTP URL
@@ -587,12 +584,6 @@ class AbstractDataFetcher(ABC):
             logging.error(e)
             return False
 
-    @retry(
-        retry=retry_if_result(is_false),
-        stop=stop_after_attempt(MAX_ATTEMPTS),
-        wait=wait_exponential(multiplier=1, min=2, max=5),
-        before=before_log(logging, logging.DEBUG),
-    )
     def download_aws(self, dest: str, url: str) -> bool:
         """Copy the file using the aws cli to access EBI Fire. Only works within EBI Network
         Usage example, to get file path and names from full FTP URL
