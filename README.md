@@ -53,7 +53,7 @@ $ pip install fetch-tool
 Install from the git repo
 
 ```bash
-$ pip install git+ssh://git@github.com/EBI-Metagenomics/fetch_tool.git
+$ pip install https://github.com/EBI-Metagenomics/fetch_tool/archive/master.zip
 ```
 
 #### Configuration options
