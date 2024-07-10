@@ -13,11 +13,10 @@ ARG MAMBA_DOCKERFILE_ACTIVATE=1
 
 ENV PATH="$MAMBA_ROOT_PREFIX/bin:$PATH"
 
-WORKDIR /opt
+COPY --chown=$MAMBA_USER:$MAMBA_USER . /opt/fetch-tool-src
 
-COPY . .
+WORKDIR /opt/fetch-tool-src
 
-ENV PATH="/opt/fetchtool:$PATH"
-ENV PYTHONPATH="/opt/:$PYTHONPATH"
+RUN pip install . --no-cache-dir
 
 ENTRYPOINT ["/usr/local/bin/_entrypoint.sh"]
