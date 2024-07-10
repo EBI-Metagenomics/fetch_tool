@@ -1,0 +1,7 @@
+{
+  "ena_api_username": "ENA_FAKE",
+  "ena_api_password": "FAKE",
+  "url_max_attempts": 10,
+  "fire_endpoint": "fake_endpoint",
+  "fire_ena_bucket": "fake_bucket"
+}

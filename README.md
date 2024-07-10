@@ -35,19 +35,12 @@ pre-commit will run a set of pre-configured tools before allowing you to commit 
 
 This repo uses [pytest](https://docs.pytest.org).
 
-It requires the aspera cli installed in the default location (`install-aspera.sh` with no parameters).
-
-To run the test suite:
-```bash
-pytest
-```
-
 ## Install fetch tool
 
 ### Using Conda
 
 ```bash
-$ conda create -q -n fetch_tool python=3.8
+$ conda create -q -n fetch_tool python=3.9
 $ conda activate fetch_tool
 ```
 
@@ -63,29 +56,16 @@ Install from the git repo
 $ pip install git+ssh://git@github.com/EBI-Metagenomics/fetch_tool.git
 ```
 
-#### Configuration file
+#### Configuration options
+
+The tool has a number of options, with sensible defaults for the most common use cases.
 
 Setup the configuration file, the template [fetchdata-config-template.json](config/fetchdata-config-template.json) for the configuration file.
 
 The required fields are:
-- For Aspera
-  - aspera_bin (the path to ascp, usually in the aspera installation under /cli/bin)
-  - aspera_cert (the path to the ascp provided cert, usually in the aspera installation under /cli/etc/asperaweb_id_dsa.openssh)
-- To pull private ENA data
+-
   - ena_api_user
   - ena_api_password
-
-### Install Aspera
-
-## Install
-
-Run the `install-aspera.sh` command here, it has only one optional parameter (the installation folder).
-
-```bash
-./install path/to/installation-i-want
-```
-
-Otherwise it will install it in $PWD/aspera-cli
 
 ## Fetch read files (amplicon and WGS data)
 
@@ -122,7 +102,7 @@ optional arguments:
 Download amplicon study:
 
 ```bash
-$ fetch-read-tool -p SRP062869 -c fetchdata-config-local.json -v -d /home/<user>/temp/
+$ fetch-read-tool -p SRP062869 -v -d /home/<user>/temp/
 ```
 
 ## Fetch assembly files
@@ -163,5 +143,5 @@ optional arguments:
 Download assembly study:
 
 ```bash
-$ fetch-assembly-tool -p ERP111288 -c fetchdata-config-local.json -v -d /home/<user>/temp/
+$ fetch-assembly-tool -p ERP111288 -v -d /home/<user>/temp/
 ```

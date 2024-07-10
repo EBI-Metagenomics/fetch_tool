@@ -1,0 +1,16 @@
+name: fetchtool
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip=24.0
+  - conda-forge::procps-ng=4.0.4
+  - conda-forge::wget=1.21.4
+  - conda-forge::rsync=3.3.0
+  - conda-forge::pandas=2.2.2
+  - pip:
+    - requests==2.32.3
+    - flufl.lock==8.1.0
+    - boto3==1.34.134

@@ -23,9 +23,7 @@ import pytest
 
 from fetchtool import fetch_reads
 
-FIXTURES_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), os.pardir, "fixtures")
-)
+FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, "fixtures"))
 
 
 @pytest.mark.flaky
@@ -47,6 +45,7 @@ class TestFetchReads:
             "run_list",
             "fix_desc_file",
             "ignore_errors",
+            "ebi",
         }
         assert set(vars(args)) == accepted_args
 
@@ -111,9 +110,7 @@ class TestFetchReads:
 
     @staticmethod
     def mock_get_study_from_run(self, *args, **kwargs):
-        return [
-            {"run_accession": "ERR2777789", "secondary_study_accession": "ERP110686"}
-        ]
+        return [{"run_accession": "ERR2777789", "secondary_study_accession": "ERP110686"}]
 
     """
     1. INVALID = incorrect file format
@@ -181,9 +178,7 @@ class TestFetchReads:
         ]
 
     @patch("fetchtool.fetch_reads.FetchReads._retrieve_ena_url")
-    def test_process_additional_args_should_find_study_accessions_for_runs(
-        self, mocked_class1, tmpdir
-    ):
+    def test_process_additional_args_should_find_study_accessions_for_runs(self, mocked_class1, tmpdir):
         study_accession = "ERP110686"
         run_id = "ERR2777789"
         fetch_reads.FetchReads._retrieve_ena_url = self.mock_get_study_from_run
@@ -193,9 +188,7 @@ class TestFetchReads:
         assert fetch.args.projects == {study_accession}
 
     @patch("fetchtool.fetch_reads.FetchReads._retrieve_ena_url")
-    def test_retrieve_project_should_return_only_valid_reads_and_check_md5(
-        self, mocked_class1, tmpdir
-    ):
+    def test_retrieve_project_should_return_only_valid_reads_and_check_md5(self, mocked_class1, tmpdir):
         study_accession = "ERP110686"
         valid_file_for = ("ERR2777790_1.fastq.gz", "39f9956b66880e386d741eea2a0e54c1")
         valid_file_rev = ("ERR2777790_2.fastq.gz", "9e6db19a2ef56383e8e426784ffff424")
@@ -207,19 +200,14 @@ class TestFetchReads:
         ]
         fetch_reads.FetchReads._retrieve_ena_url = self.mock_get_run_metadata
         fetch_reads.FetchReads.download_lftp = True
-        fetch = fetch_reads.FetchReads(
-            argv=["-p", study_accession, "-d", str(tmpdir), "--private"]
-        )
+        fetch = fetch_reads.FetchReads(argv=["-p", study_accession, "-d", str(tmpdir), "--private"])
         runs = fetch._retrieve_project_info_from_api(study_accession)
         for x in runs:
             for file in x["file"]:
                 run_path = tmpdir / file
                 Path(str(run_path)).touch()
         assert len(runs) == 1
-        assert (
-            os.listdir(str(tmpdir)).sort()
-            == ["ERR2777790_2.fastq.gz", "ERR2777790_1.fastq.gz"].sort()
-        )
+        assert os.listdir(str(tmpdir)).sort() == ["ERR2777790_2.fastq.gz", "ERR2777790_1.fastq.gz"].sort()
         for x, y in [valid_file_for, valid_file_rev]:
             assert not fetch._is_file_valid(str(tmpdir / x), y)
         project_dir = tmpdir / study_accession
