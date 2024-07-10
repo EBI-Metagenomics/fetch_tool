@@ -117,17 +117,18 @@ class TestFetchCompleteStudyAssemblies:
             validate_full_study(tmpdir)
             run_mock.call_count = 2  # 2 assemblies - tried with aspera
 
-    # @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_lftp")
-    # @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_wget")
-    # def test_fetch_sequential_runs_with_aspera(self, lftp_mock, wget_mock, tmpdir):
-    #     def raise_ex(*args, **kwargs):
-    #         raise Exception
+    @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_lftp")
+    @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_wget")
+    def test_fetch_sequential_runs_with_rsync(self, wget_mock, lftp_mock, tmpdir):
+        def return_false(*args, **kwargs):
+            return False
 
-    #     lftp_mock.side_effect = raise_ex
-    #     wget_mock.side_effect = raise_ex
-    #     with WorkingDir(tmpdir):
-    #         fassemblies = fetch_assemblies.FetchAssemblies(
-    #             ["-p", study_id, "-d", str(tmpdir)]
-    #         )
-    #         fassemblies.fetch()
-    #         validate_full_study(tmpdir)
+        lftp_mock.side_effect = return_false
+        wget_mock.side_effect = return_false
+        with WorkingDir(tmpdir):
+            fassemblies = fetch_assemblies.FetchAssemblies(["-p", study_id, "-d", str(tmpdir)])
+            fassemblies.fetch()
+            validate_full_study(tmpdir)
+
+            assert lftp_mock.called
+            assert wget_mock.called is False  # this was it's only called after rsync fails

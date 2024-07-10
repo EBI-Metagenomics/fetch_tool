@@ -274,7 +274,7 @@ class AbstractDataFetcher(ABC):
         filename = os.path.basename(dest)
         file_downloaded = False
         if not self._is_file_valid(dest, dl_md5s) or self.force_mode:
-            silentremove(dest)
+            silent_remove(dest)
             try:
                 # Copying data from NFS within EBI infrastructure only works for public data
                 if not self.private_mode and self.ebi:
@@ -290,10 +290,9 @@ class AbstractDataFetcher(ABC):
                     logging.info("Downloading with wget.")
                     file_downloaded = self.download_wget(dest, dl_file)
             except Exception as e:
-                if self.ignore_errors:
-                    logging.error(e)
-                else:
-                    raise e
+                logging.error(e)
+                if not self.ignore_errors:
+                    return False
         else:
             logging.info("File {} already exists and MD5 matches, skipping download".format(filename))
 
@@ -647,7 +646,8 @@ class AbstractDataFetcher(ABC):
                 sys.exit(1)
 
 
-def silentremove(filename):
+def silent_remove(filename):
+    """Remove a file, if the file doesn't exist it will not raise an exception"""
     try:
         os.remove(filename)
     except OSError as e:
