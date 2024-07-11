@@ -167,7 +167,7 @@ class AbstractDataFetcher(ABC):
             help="Fixed runs in project description file",
             action="store_true",
         )
-        parser.add_argument("-e", "--ebi", required=False, help="Set this flag when running on EBI infrastcutrue", action="store_true")
+        parser.add_argument("-e", "--ebi", required=False, help="Set this flag when running on EBI infrastructure", action="store_true")
         parser = self.add_arguments(parser)
         return parser.parse_args(argv)
 

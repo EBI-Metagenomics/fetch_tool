@@ -40,7 +40,7 @@ This repo uses [pytest](https://docs.pytest.org).
 ### Using Conda
 
 ```bash
-$ conda create -q -n fetch_tool python=3.9
+$ conda create -q -n fetch_tool python=3.10
 $ conda activate fetch_tool
 ```
 
@@ -53,7 +53,7 @@ $ pip install fetch-tool
 Install from the git repo
 
 ```bash
-$ pip install git+ssh://git@github.com/EBI-Metagenomics/fetch_tool.git
+$ pip install https://github.com/EBI-Metagenomics/fetch_tool/archive/master.zip
 ```
 
 #### Configuration options
