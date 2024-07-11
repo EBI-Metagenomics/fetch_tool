@@ -105,17 +105,18 @@ def validate_full_study(tmpdir):
 
 @pytest.mark.flaky
 class TestFetchCompleteStudyAssemblies:
-    @patch("fetchtool.abstract_fetch.subprocess.run")
-    def test_fetch_all_study_data(self, run_mock, tmpdir):
-        def raise_ex(*args, **kwargs):
-            raise Exception
+    @patch("fetchtool.abstract_fetch.AbstractDataFetcher.download_lftp")
+    @patch("fetchtool.abstract_fetch.AbstractDataFetcher.download_rsync")
+    def test_fetch_all_study_data(self, lftp_mock, rsync_mock, tmpdir):
+        lftp_mock.return_value = False
+        rsync_mock.return_value = False
 
-        run_mock.side_effect = raise_ex
         with WorkingDir(tmpdir):
             fassemblies = fetch_assemblies.FetchAssemblies(["-p", study_id, "-v", "-d", str(tmpdir)])
             fassemblies.fetch()
             validate_full_study(tmpdir)
-            run_mock.call_count = 2  # 2 assemblies - tried with aspera
+            lftp_mock.call_count = 2
+            rsync_mock.call_count = 2
 
     @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_lftp")
     @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_wget")

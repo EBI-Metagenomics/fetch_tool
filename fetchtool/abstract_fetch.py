@@ -279,7 +279,7 @@ class AbstractDataFetcher(ABC):
                 # Copying data from NFS within EBI infrastructure only works for public data
                 if not self.private_mode and self.ebi:
                     logging.info("Downloading using EBI's Fire AWS compatible storage")
-                    file_downloaded = self.download_aws(dest, dl_file)
+                    file_downloaded = self.download_fire(dest, dl_file)
                 if not file_downloaded:
                     logging.info("Downloading from the FTP server with lftp.")
                     file_downloaded = self.download_lftp(dest, dl_file)
@@ -513,20 +513,27 @@ class AbstractDataFetcher(ABC):
         if url[:4] == "ftp.":
             url = "ftp://" + url
         logging.info("Downloading file from FTP server..." + url)
-        download_command = [
-            "wget",
-            "-v",
-            f"--user={self.ENA_API_USER}",
-            f"--password={self.ENA_API_PASSWORD}" if self.private_mode else "-q",
-            "-t",
-            "5",
-            "-O",
-            dest,
-            url,
-        ]
-        retcode = subprocess.call(download_command)
-        if retcode:
-            logging.error("Error downloading the file from " + url)
+        download_command = ["wget", f"--user={self.ENA_API_USER if self.private_mode else 'anonymous' }"]
+        if self.private_mode:
+            download_command.append(
+                f"--password={self.ENA_API_PASSWORD}",
+            )
+        download_command.extend(
+            [
+                "-q",
+                "-t",
+                "5",
+                "-O",
+                dest,
+                url,
+            ]
+        )
+        logging.info(" ".join(download_command))
+        result = subprocess.run(download_command, text=True, capture_output=True)
+        if result.returncode != 0:
+            logging.error(f"Error downloading the file with wget. Command: {' '.join(download_command)}.")
+            logging.error(f"Stdout: {result.stdout}")
+            logging.error(f"Stderr: {result.stderr}")
             return False
         return True
 
@@ -543,8 +550,8 @@ class AbstractDataFetcher(ABC):
         ]
         logging.info(" ".join(download_command))
         result = subprocess.run(download_command, capture_output=True, text=True)
-        if result.returncode:
-            logging.error(f"Error rsyncing the file from. Command: {' '.join(download_command)}.")
+        if result.returncode != 0:
+            logging.error(f"Error rsyncing the file. Command: {' '.join(download_command)}.")
             logging.error(f"Stdout: {result.stdout}")
             logging.error(f"Stderr: {result.stderr}")
             return False
@@ -583,7 +590,7 @@ class AbstractDataFetcher(ABC):
             logging.error(e)
             return False
 
-    def download_aws(self, dest: str, url: str) -> bool:
+    def download_fire(self, dest: str, url: str) -> bool:
         """Copy the file using the aws cli to access EBI Fire. Only works within EBI Network
         Usage example, to get file path and names from full FTP URL
         - url = ftp.sra.ebi.ac.uk/vol1/sequence/ERZ166/ERZ1669403/contig.fa.gz
