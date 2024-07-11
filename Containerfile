@@ -1,21 +1,22 @@
-FROM python:3.9-slim
+FROM mambaorg/micromamba:1.5.8
 
 LABEL maintainer="Microbiome Informatics"
-LABEL version="0.9.0"
-LABEL description="EBI Fetch Tool Docker Image."
+LABEL version="1.0.0"
+LABEL description="EBI Fetch Tool."
 
-# We need curl to download aspera and ps for nextflow monitoring
-ENV DEBIAN_FRONTEND=noninteractive
+COPY --chown=$MAMBA_USER:$MAMBA_USER conda_environment.yml /tmp/env.yaml
 
-RUN apt update && apt install -y curl procps && rm -rf /var/lib/apt/lists/*
+RUN micromamba install -y -n base -f /tmp/env.yaml && \
+    micromamba clean --all --yes
 
-COPY . .
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
 
-RUN pip install --no-cache-dir .
+ENV PATH="$MAMBA_ROOT_PREFIX/bin:$PATH"
 
-# Aspera is an IBM library for data sharing
-RUN ./install-aspera.sh
+COPY --chown=$MAMBA_USER:$MAMBA_USER . /opt/fetch-tool-src
 
-RUN export PATH=$PATH:/aspera-cli/cli/bin
+WORKDIR /opt/fetch-tool-src
 
-CMD [ fetch-read-tool ]
+RUN pip install . --no-cache-dir
+
+ENTRYPOINT ["/usr/local/bin/_entrypoint.sh"]

@@ -16,17 +16,13 @@
 
 import csv
 import os
-import subprocess
-import sys
 from unittest.mock import patch
 
 import pytest
 
 from fetchtool import fetch_assemblies
 
-FIXTURES_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), os.pardir, "fixtures")
-)
+FIXTURES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, "fixtures"))
 
 
 class WorkingDir:
@@ -109,31 +105,31 @@ def validate_full_study(tmpdir):
 
 @pytest.mark.flaky
 class TestFetchCompleteStudyAssemblies:
-    @patch("fetchtool.abstract_fetch.subprocess.run")
-    def test_fetch_all_study_data(self, run_mock, tmpdir):
-        def raise_ex(*args, **kwargs):
-            raise Exception
+    @patch("fetchtool.abstract_fetch.AbstractDataFetcher.download_lftp")
+    @patch("fetchtool.abstract_fetch.AbstractDataFetcher.download_rsync")
+    def test_fetch_all_study_data(self, lftp_mock, rsync_mock, tmpdir):
+        lftp_mock.return_value = False
+        rsync_mock.return_value = False
 
-        run_mock.side_effect = raise_ex
         with WorkingDir(tmpdir):
-            fassemblies = fetch_assemblies.FetchAssemblies(
-                ["-p", study_id, "-v", "-d", str(tmpdir)]
-            )
+            fassemblies = fetch_assemblies.FetchAssemblies(["-p", study_id, "-v", "-d", str(tmpdir)])
             fassemblies.fetch()
             validate_full_study(tmpdir)
-            run_mock.call_count = 2  # 2 assemblies - tried with aspera
+            lftp_mock.call_count = 2
+            rsync_mock.call_count = 2
 
     @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_lftp")
     @patch("fetchtool.fetch_assemblies.AbstractDataFetcher.download_wget")
-    def test_fetch_sequential_runs_with_aspera(self, lftp_mock, wget_mock, tmpdir):
-        def raise_ex(*args, **kwargs):
-            raise Exception
+    def test_fetch_sequential_runs_with_rsync(self, wget_mock, lftp_mock, tmpdir):
+        def return_false(*args, **kwargs):
+            return False
 
-        lftp_mock.side_effect = raise_ex
-        wget_mock.side_effect = raise_ex
+        lftp_mock.side_effect = return_false
+        wget_mock.side_effect = return_false
         with WorkingDir(tmpdir):
-            fassemblies = fetch_assemblies.FetchAssemblies(
-                ["-p", study_id, "-d", str(tmpdir)]
-            )
+            fassemblies = fetch_assemblies.FetchAssemblies(["-p", study_id, "-d", str(tmpdir)])
             fassemblies.fetch()
             validate_full_study(tmpdir)
+
+            assert lftp_mock.called
+            assert wget_mock.called is False  # this was it's only called after rsync fails

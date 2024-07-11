@@ -47,6 +47,7 @@ class TestFetchAssemblies:
             "assembly_type",
             "fix_desc_file",
             "ignore_errors",
+            "ebi",
         }
         assert set(vars(args)) == accepted_args
 
