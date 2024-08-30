@@ -91,6 +91,8 @@ class TestFetchReads:
             "LIBRARY_LAYOUT": "PAIRED",
             "LIBRARY_SOURCE": "METAGENOMIC",
             "LIBRARY_STRATEGY": "WGS",
+            "INSTRUMENT_MODEL": "Illumina HiSeq 2000",
+            "INSTRUMENT_PLATFORM": "ILLUMINA",
             "file": "ERR599383_1.fastq.gz;ERR599383_2.fastq.gz",
             "DATA_FILE_PATH": "/tmp/ERP001736/ERR599383_1.fastq.gz;/tmp/ERP001736/ERR599383_2.fastq.gz",
         }
@@ -103,6 +105,8 @@ class TestFetchReads:
             ("LIBRARY_LAYOUT", "library_layout"),
             ("LIBRARY_STRATEGY", "library_strategy"),
             ("LIBRARY_SOURCE", "library_source"),
+            ("INSTRUMENT_MODEL", "instrument_model"),
+            ("INSTRUMENT_PLATFORM", "instrument_platform"),
         )
         for f1, f2 in equivalent_fields:
             assert raw_data[f1] == transform[f2]
@@ -129,6 +133,7 @@ class TestFetchReads:
                 "experiment_accession": "ERX2789866",
                 "run_accession": "ERR2777788",
                 "instrument_model": "unspecified",
+                "instrument_platform": "ILLUMINA",
                 "library_layout": "PAIRED",
                 "fastq_ftp": "ftp.sra.ebi.ac.uk/vol1/fastq/ERR277/009/ERR2777788/ERR2777788_1.txt.gz;"
                 "ftp.sra.ebi.ac.uk/vol1/fastq/ERR277/009/ERR2777790/ERR2777788_2.txt.gz",
@@ -147,6 +152,7 @@ class TestFetchReads:
                 "experiment_accession": "ERX2789866",
                 "run_accession": "ERR2777789",
                 "instrument_model": "unspecified",
+                "instrument_platform": "LS454",
                 "library_layout": "PAIRED",
                 "fastq_ftp": "",
                 "fastq_md5": "",
@@ -164,6 +170,7 @@ class TestFetchReads:
                 "experiment_accession": "ERX2789867",
                 "run_accession": "ERR2777790",
                 "instrument_model": "unspecified",
+                "instrument_platform": "LS454",
                 "library_layout": "PAIRED",
                 "fastq_ftp": "ftp.sra.ebi.ac.uk/vol1/fastq/ERR277/009/ERR2777790/ERR2777790_1.fastq.gz;"
                 "ftp.sra.ebi.ac.uk/vol1/fastq/ERR277/009/ERR2777790/ERR2777790_2.fastq.gz",
