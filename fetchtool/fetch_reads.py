@@ -36,6 +36,7 @@ class FetchReads(AbstractDataFetcher):
         "experiment_accession",
         "run_accession",
         "instrument_model",
+        "instrument_platform",
         "library_layout",
         "fastq_ftp",
         "fastq_md5",
@@ -207,6 +208,8 @@ class FetchReads(AbstractDataFetcher):
                             "LIBRARY_STRATEGY": d.get("library_strategy"),
                             "LIBRARY_SOURCE": d.get("library_source"),
                             "LIBRARY_LAYOUT": d.get("library_layout"),
+                            "INSTRUMENT_MODEL": d.get("instrument_model"),
+                            "INSTRUMENT_PLATFORM": d.get("instrument_platform"),
                         }
                     )
         return mapped_data
@@ -228,6 +231,8 @@ class FetchReads(AbstractDataFetcher):
             "file_path": run["DATA_FILE_PATH"],
             "library_strategy": run["LIBRARY_STRATEGY"],
             "library_source": run["LIBRARY_SOURCE"],
+            "instrument_model": run["INSTRUMENT_MODEL"],
+            "instrument_platform": run["INSTRUMENT_PLATFORM"],
         }
 
     def _get_project_accessions_from_runs(self, runs):
