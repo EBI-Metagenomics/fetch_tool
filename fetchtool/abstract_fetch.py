@@ -65,6 +65,8 @@ class AbstractDataFetcher(ABC):
         "library_layout",
         "library_strategy",
         "library_source",
+        "instrument_model",
+        "instrument_platform",
         "file",
         "file_path",
     ]
