@@ -302,6 +302,9 @@ class AbstractDataFetcher(ABC):
                 logging.error(msg)
             else:
                 raise EnvironmentError(msg)
+        else:
+            # The file was previously downloaded.
+            file_downloaded = True
 
         return file_downloaded
 
