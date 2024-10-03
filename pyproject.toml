@@ -83,7 +83,7 @@ target-version = ["py38"]
 profile = "black"
 
 [tool.bumpversion]
-current_version = "1.0.2"
+current_version = "1.0.3"
 commit = true
 tag = true
 
