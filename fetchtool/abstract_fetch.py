@@ -343,7 +343,7 @@ class AbstractDataFetcher(ABC):
             self.create_empty_file(download_file)
 
         lock_file = download_file + ".lock"
-        # Lock for 1 minute, timeout after 10 minutes to avoid deadlocking the code if it can get the lock
+        # Lock for 1 minute, timeout after 10 minutes to avoid deadlocking the code if it can't get the lock
         with Lock(lock_file, lifetime=60, default_timeout=60 * 10):
             existing_rows = set(self.read_download_data(project_accession))
             existing_rows = existing_rows.union(set(new_download_rows))
