@@ -343,8 +343,8 @@ class AbstractDataFetcher(ABC):
             self.create_empty_file(download_file)
 
         lock_file = download_file + ".lock"
-        # Lock for 1 minute
-        with Lock(lock_file, lifetime=60):
+        # Lock for 1 minute, timeout after 10 minutes to avoid deadlocking the code if it can get the lock
+        with Lock(lock_file, lifetime=60, default_timeout=60 * 10):
             existing_rows = set(self.read_download_data(project_accession))
             existing_rows = existing_rows.union(set(new_download_rows))
             with open(download_file, "w+") as f:
@@ -412,7 +412,8 @@ class AbstractDataFetcher(ABC):
 
         lock_file = project_file + ".lock"
         # We lock the file for 2 minutes, should be enough
-        with Lock(lock_file, lifetime=120):
+        # The timeout will prevent a deadlock, if within 10 minutes it can't get the lock it will timeout and exit
+        with Lock(lock_file, lifetime=120, default_timeout=60 * 10):
             # Fallback in case empty file exists
             try:
                 project_runs = self.read_project_description_file(project_accession)
