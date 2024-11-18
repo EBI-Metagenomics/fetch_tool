@@ -1,7 +1,7 @@
 FROM mambaorg/micromamba:1.5.8
 
 LABEL maintainer="Microbiome Informatics"
-LABEL version="1.0.3"
+LABEL version="1.0.4"
 LABEL description="EBI Fetch Tool."
 
 COPY --chown=$MAMBA_USER:$MAMBA_USER conda_environment.yml /tmp/env.yaml
