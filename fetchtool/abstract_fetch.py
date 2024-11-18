@@ -83,6 +83,13 @@ class AbstractDataFetcher(ABC):
         self.create_output_dir(self.args.dir)
         self.base_dir = self.args.dir
 
+        self.interactive_mode = self.args.interactive
+        self.private_mode = self.args.private
+        self.force_mode = self.args.force
+        self.desc_file_only = self.args.fix_desc_file
+        self.ignore_errors = self.args.ignore_errors
+        self.ebi = self.args.ebi
+
         self.config = {}
         self._load_default_config_values()
 
@@ -96,13 +103,6 @@ class AbstractDataFetcher(ABC):
 
         self.ENA_API_USER = self.config["ena_api_username"]
         self.ENA_API_PASSWORD = self.config["ena_api_password"]
-
-        self.interactive_mode = self.args.interactive
-        self.private_mode = self.args.private
-        self.force_mode = self.args.force
-        self.desc_file_only = self.args.fix_desc_file
-        self.ignore_errors = self.args.ignore_errors
-        self.ebi = self.args.ebi
 
         self._process_additional_args()
         if self.args.projects or self.args.project_list:
@@ -178,8 +178,10 @@ class AbstractDataFetcher(ABC):
         self.config["ena_api_username"] = ""
         self.config["ena_api_password"] = ""
         self.config["url_max_attempts"] = 5
-        self.config["fire_endpoint"] = "http://hl.fire.sdo.ebi.ac.uk"
-        self.config["fire_ena_bucket"] = "era-public"
+        self.config["fire_endpoint"] = "https://hl.fire.sdo.ebi.ac.uk"
+        self.config["fire_ena_bucket"] = "era-private" if self.private_mode else "era-public"
+        self.config["fire_access_key_id"] = self.config.get("fire_access_key_id")
+        self.config["fire_secret_access_key"] = self.config.get("fire_secret_access_key")
 
     @staticmethod
     def add_arguments(parser):
@@ -278,8 +280,8 @@ class AbstractDataFetcher(ABC):
         if not self._is_file_valid(dest, dl_md5s) or self.force_mode:
             silent_remove(dest)
             try:
-                # Copying data from NFS within EBI infrastructure only works for public data
-                if not self.private_mode and self.ebi:
+                # Copying data from NFS within EBI infrastructure #
+                if self.ebi:
                     logging.info("Downloading using EBI's Fire AWS compatible storage")
                     file_downloaded = self.download_fire(dest, dl_file)
                 if not file_downloaded:
@@ -599,14 +601,36 @@ class AbstractDataFetcher(ABC):
     def download_fire(self, dest: str, url: str) -> bool:
         """Copy the file using the aws cli to access EBI Fire. Only works within EBI Network
         Usage example, to get file path and names from full FTP URL
-        - url = ftp.sra.ebi.ac.uk/vol1/sequence/ERZ166/ERZ1669403/contig.fa.gz
+        - url = ftp.sra.ebi.ac.uk/vol1/sequence/ERZ166/ERZ1669403/contig.fa.gz (ftp.dcc-private.ebi.ac.uk/vol1/ for private)
         - dest = destination path
         """
-        fire_path = url.replace("ftp.sra.ebi.ac.uk/vol1/", "")
+        # Remove the public and private prefixes
+        fire_path = url.replace("ftp.sra.ebi.ac.uk/vol1/", "").replace("ftp.dcc-private.ebi.ac.uk/vol1/", "")
         fire_endpoint = self.config["fire_endpoint"]
         ena_bucket_name = self.config["fire_ena_bucket"]
+        fire_access_key_id = self.config.get("fire_access_key_id")
+        fire_secret_access_key = self.config.get("fire_secret_access_key")
         try:
-            s3 = boto3.client("s3", endpoint_url=fire_endpoint, config=Config(signature_version=UNSIGNED))
+            s3_args = {
+                "endpoint_url": fire_endpoint,
+            }
+            if self.private_mode:
+                if not fire_access_key_id:
+                    logging.error("Can't use Fire as the 'fire_access_key_id' is empty")
+                    return False
+                if not fire_secret_access_key:
+                    logging.error("Can't use Fire as the 'fire_secret_access_key' is empty")
+                    return False
+                s3_args.update(
+                    {
+                        "aws_access_key_id": fire_access_key_id,
+                        "aws_secret_access_key": fire_secret_access_key,
+                    }
+                )
+            else:
+                # Public endpoint calls are not verified
+                s3_args.update({"config": Config(signature_version=UNSIGNED)})
+            s3 = boto3.client("s3", **s3_args)
             object_key = fire_path
             s3.download_file(ena_bucket_name, object_key, dest)
             logging.info("File downloaded successfully")
