@@ -180,8 +180,8 @@ class AbstractDataFetcher(ABC):
         self.config["url_max_attempts"] = 5
         self.config["fire_endpoint"] = "https://hl.fire.sdo.ebi.ac.uk"
         self.config["fire_ena_bucket"] = "era-private" if self.private_mode else "era-public"
-        self.config["fire_access_key_id"] = self.config.get("fire_access_key_id")
-        self.config["fire_secret_access_key"] = self.config.get("fire_secret_access_key")
+        self.config["fire_access_key_id"] = ""
+        self.config["fire_secret_access_key"] = ""
 
     @staticmethod
     def add_arguments(parser):
