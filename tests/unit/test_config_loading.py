@@ -28,8 +28,10 @@ class TestConfigLoading:
             "ena_api_username": "",
             "ena_api_password": "",
             "url_max_attempts": 5,
-            "fire_endpoint": "http://hl.fire.sdo.ebi.ac.uk",
+            "fire_endpoint": "https://hl.fire.sdo.ebi.ac.uk",
             "fire_ena_bucket": "era-public",
+            "fire_access_key_id": "",
+            "fire_secret_access_key": "",
         }
 
     def test_config_override_with_json_file(self):
@@ -40,6 +42,8 @@ class TestConfigLoading:
             "url_max_attempts": 10,
             "fire_endpoint": "fake_endpoint",
             "fire_ena_bucket": "fake_bucket",
+            "fire_access_key_id": "",
+            "fire_secret_access_key": "",
         }
 
     def test_config_override_partial_with_json(self):
@@ -50,4 +54,6 @@ class TestConfigLoading:
             "url_max_attempts": 8,
             "fire_endpoint": "fake_endpoint",
             "fire_ena_bucket": "fake_bucket",
+            "fire_access_key_id": "",
+            "fire_secret_access_key": "",
         }
